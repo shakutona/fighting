@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>2D対戦格闘ゲーム オンライン対応版</title>
+<title>2D対戦格闘ゲーム トレモ＆オンライン対応版</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--bg:#eef0f5;--fg:#14161f;--bt:#d6dae6;--bd:#8d94ad;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -15,29 +15,37 @@ canvas{width:100%;flex:1;min-height:0;object-fit:contain;background:#0d0e14}
 #d{position:relative;width:126px;height:126px;border-radius:50%;background:var(--bt);border:2px solid var(--bd);touch-action:none;flex-shrink:0}
 #k{position:absolute;left:33px;top:33px;width:60px;height:60px;border-radius:50%;background:var(--bd);pointer-events:none}
 #b{flex:1;max-width:290px;margin-left:10px;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,64px)}
+#topBar{position:fixed;top:calc(env(safe-area-inset-top,0px) + 2px);left:4px;right:4px;z-index:9;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+#topBar .tgrp{display:flex;gap:4px;align-items:center;pointer-events:auto}
+.tbtn{height:28px;padding:0 8px;font:bold 11px system-ui;border-radius:8px;opacity:.92}
+#bonlBtn{border-color:#4aa3ff}
+#bonlBtn.live{border-color:#38d9a9;color:#38d9a9}
+#bResetBtn{border-color:#ffd34d;color:#ffd34d}
+#bRecBtn{border-color:#ff6b6b;color:#ff6b6b}
+#bRecBtn.rec{background:#5c1922;color:#fff;animation:pl .6s infinite alternate}
+#bRecBtn.play{border-color:#38d9a9;color:#38d9a9}
+#gear{width:34px;height:28px;padding:0;font-size:15px;border-radius:8px;opacity:.9}
 #tb{position:fixed;top:calc(env(safe-area-inset-top,0px) + 34px);right:6px;z-index:9;background:var(--bg);border:2px solid var(--bd);border-radius:10px;display:none;flex-direction:column;gap:4px;padding:6px}
 #tb.open{display:flex}
-#gear{position:fixed;top:calc(env(safe-area-inset-top,0px) + 2px);right:4px;z-index:9;width:32px;height:28px;padding:0;font-size:15px;border-radius:8px;opacity:.85}
-#bonlBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 2px);left:4px;z-index:9;height:28px;padding:0 8px;font-size:11px;border-radius:8px;opacity:.9;border-color:#4aa3ff}
-#bonlBtn.live{border-color:#38d9a9;color:#38d9a9}
 #tb button{font:bold 11px system-ui;padding:5px 7px;border-radius:8px}
-#tb button:disabled{opacity:.4}
 button{background:var(--bt);color:var(--fg);border:2px solid var(--bd);border-radius:14px;font:bold 18px system-ui;touch-action:none;padding:0}
 button.on{filter:brightness(1.5)}
 #bsys{border-color:#e0a84d;color:#ffd34d}
-#ml,#onl{position:fixed;inset:0;background:rgba(10,12,18,.94);color:#eceef6;display:none;flex-direction:column;padding:16px;overflow-y:auto;z-index:10;touch-action:pan-y}
-#ml.open,#onl.open{display:flex}
-#ml h2,#onl h2{margin:0 0 10px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+#ml,#onl,#trn{position:fixed;inset:0;background:rgba(10,12,18,.95);color:#eceef6;display:none;flex-direction:column;padding:14px 16px 24px;overflow-y:auto;z-index:10;touch-action:pan-y}
+#ml.open,#onl.open,#trn.open{display:flex}
+#ml h2,#onl h2,#trn h2{margin:0 0 10px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
 #ml table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px}
 #ml th,#ml td{border:1px solid #444960;padding:5px 6px;text-align:left}
 #ml th{background:#232738}
-.ocard{background:#1b1e2b;border:1px solid #444960;border-radius:12px;padding:12px;margin-bottom:10px}
-.ocard h3{margin:0 0 8px;font-size:14px;color:#6fe3ff}
-.orow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.obtn{padding:8px 12px;font-size:13px;border-radius:10px;background:#2a2d3a;color:#eceef6;border:2px solid #5a617a;touch-action:manipulation}
+.ocard{background:#1b1e2b;border:1px solid #444960;border-radius:12px;padding:10px 12px;margin-bottom:9px}
+.ocard h3{margin:0 0 7px;font-size:13.5px;color:#6fe3ff}
+.orow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.olbl{font-size:11.5px;color:#b8bfd8;width:100%;margin-top:4px}
+.obtn{padding:7px 10px;font-size:12.5px;border-radius:9px;background:#2a2d3a;color:#eceef6;border:2px solid #5a617a;touch-action:manipulation}
 .obtn.sel{border-color:#ffd34d;color:#ffd34d;background:#343228}
 .obtn.pri{border-color:#4aa3ff;background:#1d3554;color:#fff}
 .obtn.dan{border-color:#ff5d5d;background:#4a2028;color:#fff}
+.obtn.grn{border-color:#38d9a9;background:#173d33;color:#fff}
 .oinp{background:#0d0e14;color:#fff;border:2px solid #5a617a;border-radius:10px;padding:8px 10px;font:bold 18px monospace;width:110px;text-align:center;letter-spacing:3px;touch-action:manipulation;user-select:text;-webkit-user-select:text}
 .codebox{font:bold 24px monospace;letter-spacing:4px;color:#ffd34d;background:#0d0e14;padding:6px 14px;border-radius:8px;border:1px solid #5a617a}
 #bsup{grid-column:1/-1;height:38px;font-size:15px;border-color:#e0a84d;color:#ffd34d;visibility:hidden}
@@ -53,18 +61,22 @@ canvas{order:1;flex:1;min-width:0;height:100%}
 }
 </style></head><body>
 <canvas id="c" width="1280" height="720"></canvas>
-<button id="bonlBtn">🌐 オンライン</button>
-<button id="gear">⚙</button>
+<div id="topBar">
+  <div class="tgrp">
+    <button class="tbtn" id="bonlBtn">🌐 オンライン</button>
+    <button class="tbtn" id="bResetBtn">↺ リセット</button>
+    <button class="tbtn" id="bRecBtn">● 録画</button>
+  </div>
+  <div class="tgrp">
+    <button id="gear">⚙</button>
+  </div>
+</div>
 <div id="tb">
-  <button id="bonlMenu">🌐 オンライン対戦</button>
-  <button id="bc1">1P:弾キャラ</button>
-  <button id="bc2">2P:肉弾キャラ</button>
-  <button id="bm">相手:停止</button>
+  <button id="bonlMenu">🌐 オンライン設定</button>
   <button id="bhb">判定:ON</button>
   <button id="bfm">Fメーター:ON</button>
   <button id="bml">技表</button>
   <button id="bsnd">音:ON</button>
-  <button id="bgm">ゲージMAX</button><button id="bhp">体力全回復</button><button id="brv">切返し:OFF</button><button id="btk">投げ抜け:OFF</button>
 </div>
 <div id="pad">
   <div id="d"><div id="k"></div></div>
@@ -78,10 +90,117 @@ canvas{order:1;flex:1;min-width:0;height:100%}
     <button id="bsup">超必殺技</button>
   </div>
 </div>
+
+<!-- トレーニングモード設定モーダル -->
+<div id="trn">
+  <h2><span>🥊 トレーニングモード設定</span><button id="trnc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
+  <div class="ocard">
+    <h3>1. クイック操作・キャラクター・開始位置</h3>
+    <div class="orow" style="margin-bottom:6px">
+      <button class="obtn pri" id="tDoReset">↺ 位置・状態リセット</button>
+      <button class="obtn" id="tOpenMove">📖 技表</button>
+      <button class="obtn" id="tOpenOnline">🌐 オンライン対戦</button>
+    </div>
+    <div class="olbl">1P（自分）キャラ</div>
+    <div class="orow" id="tC1Row">
+      <button class="obtn sel" data-c1="0">弾キャラ</button>
+      <button class="obtn" data-c1="1">肉弾キャラ</button>
+      <button class="obtn" data-c1="2">特殊キャラ</button>
+    </div>
+    <div class="olbl">2P（ダミー）キャラ</div>
+    <div class="orow" id="tC2Row">
+      <button class="obtn" data-c2="0">弾キャラ</button>
+      <button class="obtn sel" data-c2="1">肉弾キャラ</button>
+      <button class="obtn" data-c2="2">特殊キャラ</button>
+    </div>
+    <div class="olbl">リセット時の開始位置</div>
+    <div class="orow" id="tPosRow">
+      <button class="obtn sel" data-pos="0">中央</button>
+      <button class="obtn" data-pos="1">画面端(右)</button>
+      <button class="obtn" data-pos="2">逆画面端(左)</button>
+      <button class="obtn" data-pos="3">密着</button>
+    </div>
+  </div>
+
+  <div class="ocard">
+    <h3>2. ダミー（相手）行動・防御設定</h3>
+    <div class="olbl">基本行動</div>
+    <div class="orow" id="tDummyRow">
+      <button class="obtn sel" data-dum="0">立ち</button>
+      <button class="obtn" data-dum="1">しゃがみ</button>
+      <button class="obtn" data-dum="2">ジャンプ</button>
+      <button class="obtn" data-dum="3">CPU(弱)</button>
+      <button class="obtn" data-dum="4">CPU(強)</button>
+      <button class="obtn" data-dum="5">REC再生</button>
+    </div>
+    <div class="olbl">ガード設定</div>
+    <div class="orow" id="tGuardRow">
+      <button class="obtn sel" data-grd="0">ガードなし</button>
+      <button class="obtn" data-grd="1">全ガード</button>
+      <button class="obtn" data-grd="2">1発目のみ</button>
+      <button class="obtn" data-grd="3">2発目以降</button>
+      <button class="obtn" data-grd="4">ランダム</button>
+    </div>
+    <div class="olbl">リバーサル（ダウン復帰・ガード硬直後の反撃）</div>
+    <div class="orow" id="tRevRow">
+      <button class="obtn sel" data-rev="0">なし</button>
+      <button class="obtn" data-rev="1">最速小技(4F)</button>
+      <button class="obtn" data-rev="2">無敵技</button>
+      <button class="obtn" data-rev="3">無敵切り返し</button>
+      <button class="obtn" data-rev="4">投げ</button>
+      <button class="obtn" data-rev="5">ジャンプ</button>
+    </div>
+    <div class="olbl">投げ抜け / カウンター設定</div>
+    <div class="orow" id="tTechRow">
+      <button class="obtn sel" data-tch="0">投げ抜け:OFF</button>
+      <button class="obtn" data-tch="1">投げ抜け:ON</button>
+      <button class="obtn" data-tch="2">投げ抜け:50%</button>
+      <button class="obtn" id="tCntBtn">強制パニッシュ:OFF</button>
+    </div>
+  </div>
+
+  <div class="ocard">
+    <h3>3. ダミー録画（レコード＆再生）・操作切替</h3>
+    <div class="orow">
+      <button class="obtn dan" id="tRecStart">● 2P行動を録画(最大6秒)</button>
+      <button class="obtn grn" id="tRecPlay">▶ 録画を再生</button>
+      <button class="obtn sel" id="tRecLoop">ループ再生:ON</button>
+      <button class="obtn" id="tCtrlSide">操作対象:1P</button>
+    </div>
+    <div id="tRecInfo" style="font-size:11.5px;color:#b8bfd8;margin-top:6px">録画データ：なし（ボタンを押して2Pを動かすと行動を記録できます）</div>
+  </div>
+
+  <div class="ocard">
+    <h3>4. 体力・ゲージ・画面表示</h3>
+    <div class="orow" style="margin-bottom:6px">
+      <button class="obtn sel" id="tAutoHp">体力自動回復:ON</button>
+      <button class="obtn" id="tInfStock">特殊弾ストックMAX:OFF</button>
+      <button class="obtn" id="tResetMaxDmg">最大コンボ記録リセット</button>
+    </div>
+    <div class="olbl">ゲージ設定</div>
+    <div class="orow" id="tGaugeRow" style="margin-bottom:6px">
+      <button class="obtn" data-gg="0">通常</button>
+      <button class="obtn sel" data-gg="1">コンボ後MAX</button>
+      <button class="obtn" data-gg="2">常にMAX</button>
+    </div>
+    <div class="olbl">画面表示オプション</div>
+    <div class="orow">
+      <button class="obtn sel" id="tVisHb">判定表示:ON</button>
+      <button class="obtn sel" id="tVisFm">Fメーター:ON</button>
+      <button class="obtn sel" id="tVisKey">キー履歴:ON</button>
+      <button class="obtn sel" id="tVisInfo">詳細数値:ON</button>
+      <button class="obtn sel" id="tVisSnd">音:ON</button>
+    </div>
+  </div>
+</div>
+
+<!-- 技表モーダル -->
 <div id="ml">
   <h2><span id="mlt">技表</span><button id="mlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
   <div id="mlb"></div>
 </div>
+
+<!-- オンライン対戦モーダル -->
 <div id="onl">
   <h2><span>🌐 オンライン対戦（合言葉マッチ）</span><button id="onlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
   <div class="ocard">
@@ -119,10 +238,10 @@ canvas{order:1;flex:1;min-width:0;height:100%}
   </div>
   <div class="ocard">
     <h3>通信ステータス</h3>
-    <div id="oStat" style="font-size:13px;color:#ffd34d;line-height:1.5">未接続（現在はオフラインモードです）</div>
+    <div id="oStat" style="font-size:13px;color:#ffd34d;line-height:1.5">未接続（現在はトレーニングモードです）</div>
     <div class="orow" style="margin-top:10px">
       <button class="obtn pri" id="oRematchBtn" style="display:none">もう1戦（同期リセット）</button>
-      <button class="obtn dan" id="oDiscBtn" style="display:none">切断してオフラインに戻る</button>
+      <button class="obtn dan" id="oDiscBtn" style="display:none">切断してトレモに戻る</button>
     </div>
   </div>
 </div>
@@ -268,17 +387,77 @@ const mk=(x,cid)=>({
   cid,c:CHARS[cid].col,fb:0,n:'',cr:0,gd:0,inL:0,inR:0,hit:0,gw:0,airUsed:0,
   stock:cid===2?1:0,bkTap:0,prevBk:0,thWin:0,thBy:null,thM:null,thDir:1,
   thType:'slam',thDur:28,thTarget:null,thBaseX:0,
-  chaosQ:0,chaosT:0,chaosIdx:0,pop:'',popT:0,w:0,cf:0
+  chaosQ:0,chaosT:0,chaosIdx:0,pop:'',popT:0,w:0,cf:0,
+  cd:0,dn:0,cs:0,pun:false,lsid:0,mid:0,twT:0,twK:''
 });
-let P=mk(160,0),E=mk(480,1);
-let fbs=[],sparks=[],ph=0,pt=0,msg='',rw=[0,0],ai={t:0,a:'x',f:0},FR=0,DM=0,pnT=0,cutT=0,cutTxt='',cutCol='#fff';
-let T=3600,HS=0,SHK=0,SID=0,RV=0,TK=0;
+let P=mk(210,0),E=mk(430,1);
+let fbs=[],sparks=[],ph=0,pt=0,msg='',rw=[0,0],ai={t:0,a:'x',f:0},FR=0,pnT=0,cutT=0,cutTxt='',cutCol='#fff';
+let T=3600,HS=0,SHK=0,SID=0;
 
 const mkInp=()=>({l:0,r:0,u:0,d:0,pr:{},h:{},buf:[]});
 const LOC=mkInp(),I=mkInp(),CI=mkInp();
 const BTN_KEYS=['P','K','S','T','X','SYS'];
 
-/* ===== オンライン同期（入力遅延ロックステップ方式） ===== */
+/* トレーニングモード設定＆状態 */
+const TRN={
+  pos:0,       // 0:中央, 1:画面端(右), 2:逆画面端(左), 3:密着
+  dummy:0,     // 0:立ち, 1:しゃがみ, 2:ジャンプ, 3:CPU(弱), 4:CPU(強), 5:REC再生
+  guard:0,     // 0:なし, 1:全ガード, 2:1発目のみ, 3:2発目以降, 4:ランダム
+  rev:0,       // 0:なし, 1:最速小技, 2:無敵技, 3:無敵切り返し, 4:投げ, 5:ジャンプ
+  tech:0,      // 0:OFF, 1:ON, 2:50%
+  counter:0,   // 0:通常, 1:強制パニッシュ
+  autoHp:1,    // 1:コンボ終了後全回復
+  gaugeMode:1, // 0:通常, 1:コンボ後MAX, 2:常にMAX
+  infStock:0,  // 1:特殊キャラストック常にMAX
+  keyLog:1,    // 1:キー履歴表示
+  infoHud:1,   // 1:ダメージ・距離詳細表示
+  ctrl2P:0,    // 1:2P直接操作
+  recState:0,  // 0:待機, 1:録画中, 2:再生中
+  recLoop:1,   // 1:ループ再生
+  recData:[],
+  recIdx:0,
+  recWait:0,
+  prev2Rec:0,
+  guardHitCnt:0,
+  randBlk:0,
+  prevES:'i',
+  maxComboDmg:0,
+  lastDmg:0,
+  lastScale:100
+};
+
+const KEY_LOG=[];
+function pushKeyLog(inp){
+  if(NET.active||!TRN.keyLog)return;
+  const lr=inp.l&&inp.r;
+  const l=lr?0:inp.l,r=lr?0:inp.r;
+  let dir='・';
+  if(uAnd(inp.u,l))dir='↖';
+  else if(uAnd(inp.u,r))dir='↗';
+  else if(inp.u)dir='↑';
+  else if(uAnd(inp.d,l))dir='↙';
+  else if(uAnd(inp.d,r))dir='↘';
+  else if(inp.d)dir='↓';
+  else if(l)dir='←';
+  else if(r)dir='→';
+
+  const bs=[];
+  if(inp.h.P)bs.push('P');
+  if(inp.h.K)bs.push('K');
+  if(inp.h.S)bs.push('SP');
+  if(inp.h.T)bs.push('投');
+  if(inp.h.X)bs.push('EX');
+  if(inp.h.SYS)bs.push('S');
+  const sig=dir+'|'+bs.join('+');
+  if(KEY_LOG.length&&KEY_LOG[0].sig===sig){
+    if(KEY_LOG[0].frames<999)KEY_LOG[0].frames++;
+  }else{
+    KEY_LOG.unshift({sig,dir,btns:bs,frames:1});
+    if(KEY_LOG.length>12)KEY_LOG.pop();
+  }
+}
+function uAnd(a,b){return a&&b}
+
 const NET={
   peer:null,conn:null,active:0,side:0,room:'',myCid:0,delay:3,
   simFr:0,locSentUpTo:-1,
@@ -340,7 +519,6 @@ function pumpLocalNetInputs(){
     myMap.set(NET.locSentUpTo,bits);
   }
   LOC.pr.SUP=0;
-  // パケットロス耐性のため直近6フレーム分の確定入力をまとめて送信
   const list=[];
   for(let f=Math.max(0,NET.locSentUpTo-5);f<=NET.locSentUpTo;f++){
     if(myMap.has(f))list.push([f,myMap.get(f)]);
@@ -361,6 +539,8 @@ function startNetMatch(side,cid1,cid2,delay){
   NET.rematchSelf=0;
   NET.rematchPeer=0;
   NET.waitFrames=0;
+  TRN.recState=0;
+  TRN.ctrl2P=0;
   for(let f=0;f<delay;f++){
     NET.in1.set(f,0);
     NET.in2.set(f,0);
@@ -370,19 +550,63 @@ function startNetMatch(side,cid1,cid2,delay){
   Object.assign(CI,mkInp());
   cSel=[cid1,cid2];
   rw=[0,0];
-  DM=0;RV=0;TK=0;
   setChars();
   P.g=0;E.g=0;
   round();
-  updateNetUI();
+  updateModeUI();
   document.getElementById('onl').classList.remove('open');
+  document.getElementById('trn').classList.remove('open');
   document.getElementById('tb').classList.remove('open');
   pop(side===1?P:E,'あなたは '+(side===1?'1P (左)':'2P (右)'));
 }
 
 function stopNetMatch(reason){
   if(NET.conn){try{NET.conn.close()}catch(e){}NET.conn=null}
-  if(NET.peer){try{NET.peer.destroy()}catch(e){}NET.peer=nu
+  if(NET.peer){try{NET.peer.destroy()}catch(e){}NET.peer=null}
+  NET.active=0;
+  NET.side=0;
+  NET.room='';
+  NET.rematchSelf=0;
+  NET.rematchPeer=0;
+  document.getElementById('oRoomCode').style.display='none';
+  document.getElementById('oCopyBtn').style.display='none';
+  document.getElementById('oSetupCard').style.display='block';
+  resetTrainingPos(1);
+  updateModeUI(reason||'切断しました（トレーニングモード）');
+}
+
+function updateModeUI(customMsg){
+  const bMenu=document.getElementById('bonlBtn');
+  const bReset=document.getElementById('bResetBtn');
+  const bRec=document.getElementById('bRecBtn');
+  const stat=document.getElementById('oStat');
+  const remBtn=document.getElementById('oRematchBtn');
+  const discBtn=document.getElementById('oDiscBtn');
+
+  if(NET.active){
+    bMenu.textContent='🟢 オンライン('+(NET.side===1?'1P':'2P')+')';
+    bMenu.classList.add('live');
+    bReset.style.display='none';
+    bRec.style.display='none';
+    stat.style.color='#38d9a9';
+    stat.textContent=customMsg||('対戦中！ あなたは '+(NET.side===1?'1P（左側）':'2P（右側）')+' / 遅延:'+NET.delay+'F');
+    remBtn.style.display='inline-block';
+    discBtn.style.display='inline-block';
+    document.getElementById('oSetupCard').style.display='none';
+  }else{
+    bMenu.textContent='🌐 オンライン';
+    bMenu.classList.remove('live');
+    bReset.style.display='inline-block';
+    bRec.style.display='inline-block';
+    syncRecButtons();
+    stat.style.color='#ffd34d';
+    if(customMsg)stat.textContent=customMsg;
+    remBtn.style.display='none';
+    discBtn.style.display=NET.peer?'inline-block':'none';
+    document.getElementById('oSetupCard').style.display='block';
+  }
+}
+
 const FM={
   max:64,p:[],e:[],idle:0,active:0,adv:null,lastMove:'',lastData:null,atkSide:0,atkBusy:0,defBusy:0
 };
@@ -439,20 +663,65 @@ function pop(p,txt){p.pop=txt;p.popT=48}
 function addSpark(x,y,col){sparks.push({x,y,col,t:12})}
 function setChars(){
   const gP=P.g,gE=E.g;
-  P=mk(160,cSel[0]);E=mk(480,cSel[1]);
+  P=mk(210,cSel[0]);E=mk(430,cSel[1]);
   P.g=gP;E.g=gE;
   resetFM();
-  document.getElementById('bc1').textContent='1P:'+CHARS[cSel[0]].name;
-  document.getElementById('bc2').textContent='2P:'+CHARS[cSel[1]].name;
+  syncTrainingMenuBtns();
   renderMoveList();
 }
 function round(){
   for(const q of[P,E]){
     const cid=q.cid;
-    Object.assign(q,{hp:1e4,s:'i',t:0,y:0,vy:0,vx:0,cmb:0,fb:0,cr:0,airUsed:0,n:'',stock:cid===2?1:0,thWin:0,thTarget:null,chaosQ:0,chaosT:0,chaosIdx:0,popT:0});
+    Object.assign(q,{hp:1e4,s:'i',t:0,y:0,vy:0,vx:0,cmb:0,fb:0,cr:0,airUsed:0,n:'',stock:cid===2?1:0,thWin:0,thTarget:null,chaosQ:0,chaosT:0,chaosIdx:0,popT:0,cd:0,dn:0,cs:0,twT:0});
   }
-  P.x=160;E.x=480;fbs=[];sparks=[];msg='';ph=0;cutT=0;resetFM();T=3600;HS=0;
+  P.x=160;E.x=480;P.f=1;E.f=-1;fbs=[];sparks=[];msg='';ph=0;cutT=0;resetFM();T=3600;HS=0;
 }
+
+function resetTrainingPos(silent){
+  if(NET.active)return;
+  for(const q of[P,E]){
+    const cid=q.cid;
+    Object.assign(q,{
+      hp:1e4,s:'i',t:0,y:0,vy:0,vx:0,cmb:0,fb:0,cr:0,airUsed:0,n:'',
+      stock:(cid===2?(TRN.infStock?4:1):0),
+      thWin:0,thTarget:null,chaosQ:0,chaosT:0,chaosIdx:0,popT:0,cd:0,dn:0,cs:0,twT:0
+    });
+    if(TRN.gaugeMode>=1)q.g=4;
+    else q.g=0;
+  }
+  if(TRN.pos===0){P.x=210;E.x=430}
+  else if(TRN.pos===1){P.x=520;E.x=605}
+  else if(TRN.pos===2){P.x=120;E.x=35}
+  else{P.x=295;E.x=345}
+  P.f=E.x>=P.x?1:-1;
+  E.f=P.x>=E.x?1:-1;
+  fbs=[];sparks=[];msg='';ph=0;cutT=0;HS=0;pnT=0;
+  TRN.guardHitCnt=0;
+  TRN.prevES='i';
+  resetFM();
+  if(!silent)pop(P,'RESET');
+}
+
+function handleTrainingAutoRecover(){
+  if(NET.active)return;
+  if(TRN.gaugeMode===2){P.g=4;E.g=4}
+  if(TRN.infStock){
+    if(P.cid===2)P.stock=4;
+    if(E.cid===2)E.stock=4;
+  }
+  const bothNeutral=(P.s==='i'&&E.s==='i'&&P.y===0&&E.y===0&&fbs.length===0&&P.thWin===0&&E.thWin===0);
+  if(bothNeutral){
+    if(TRN.autoHp){
+      if(P.hp<1e4)P.hp=Math.min(1e4,P.hp+400);
+      if(E.hp<1e4)E.hp=Math.min(1e4,E.hp+400);
+    }
+    if(TRN.gaugeMode===1){
+      if(P.g<4)P.g=Math.min(4,P.g+.15);
+      if(E.g<4)E.g=Math.min(4,E.g+.15);
+    }
+  }
+}
+
 function go(p,m){
   p.s='atk';p.m=m;p.fr=0;p.hit=0;p.n=m.n;p.mid=++SID;
   if(m.hop){p.y=-36;p.vy=-6.8}
@@ -810,8 +1079,9 @@ function resolveInput(p,i){
     pop(p,'投げ抜け！');se('tech');
     return;
   }
-  if((p.s==='bs'||p.s==='dn')&&bk&&i.pr.SYS&&p.g>=1){
-    p.g-=1;p.y=0;p.vy=0;p.airUsed=0;go(p,M.REV);pop(p,'切り返し！');se('tech');
+  if((p.s==='bs'||p.s==='dn')&&bk&&i.pr.SYS&&(p.g>=1||(!NET.active&&p===E&&TRN.rev===3))){
+    if(p.g>=1)p.g-=1;
+    p.y=0;p.vy=0;p.airUsed=0;go(p,M.REV);pop(p,'切り返し！');se('tech');
     return;
   }
   if(p.s==='air'&&!p.airUsed){
@@ -853,9 +1123,9 @@ function resolveInput(p,i){
   if(i.pr.SUP&&p.g>=4){startSuper(p);return}
   if(i.pr.T){go(p,M.T);return}
   if(fw&&i.pr.SYS&&p.g>=.25){p.g-=.25;go(p,M.GB);return}
-  if(i.pr.X&&p.g>=1){
+  if(i.pr.X&&(p.g>=1||(!NET.active&&p===E&&TRN.rev===2))){
     const m=M['X'+(i.d?'D':fw?'F':bk?'B':'N')];
-    if(m){p.g-=1;go(p,m);return}
+    if(m){if(p.g>=1)p.g-=1;go(p,m);return}
   }
   const b=i.pr.P?'P':i.pr.K?'K':i.pr.S?'S':0;
   if(b){
@@ -1001,6 +1271,10 @@ function step(p,o,i){
           const dmg=m.d;
           def.hp-=dmg;
           def.g=Math.min(4,def.g+dmg/2500);
+          if(!NET.active&&def===E){
+            TRN.lastDmg=dmg;TRN.lastScale=100;
+            if(dmg>TRN.maxComboDmg)TRN.maxComboDmg=dmg;
+          }
           if(m.steal){
             const st=Math.min(def.g,m.steal);
             def.g-=st;
@@ -1070,6 +1344,7 @@ function isInv(o,isProj){
   if(!isProj&&o.s==='atk'&&o.m.aaInv&&o.fr<=o.m.aaInv&&(o.y<0||o.s==='air'))return 1;
   return 0;
 }
+
 function tryHit(p,o,m){
   if(isInv(o,0))return;
   if(o.s==='atk'&&o.m.aaInv&&o.fr<=o.m.aaInv&&(p.y<0||p.s==='air'))return;
@@ -1119,6 +1394,8 @@ function hit(p,o,m,rem,fbSpec,hitDir){
   const holdGuard=dir>0?o.inR:o.inL;
   const canGuard=holdGuard&&(o.s==='i'||o.s==='bs')&&o.y>=0;
   const heightOk=m.h==='h'||(m.h==='m'&&!o.cr)||(m.h==='l'&&o.cr);
+  if(!NET.active&&o===E)TRN.guardHitCnt++;
+
   if(canGuard&&heightOk){
     if(m.gb){
       o.s='gb';o.t=m.gb;o.x+=dir*14;
@@ -1139,7 +1416,10 @@ function hit(p,o,m,rem,fbSpec,hitDir){
   }
 
   const wasAir=o.y<0;
-  if(o.s!=='hs'){o.pun=o.s==='atk'&&o.fr>=o.m.s+(o.m.a||0);o.cd=0}
+  if(o.s!=='hs'){
+    o.pun=(o.s==='atk'&&o.fr>=o.m.s+(o.m.a||0))||(!NET.active&&o===E&&TRN.counter===1);
+    o.cd=0;
+  }
   const sid=m.sid||p.mid;o.cmb=o.s==='hs'?o.cmb+(o.lsid===sid?0:1):1;o.lsid=sid;
   const n=o.cmb-1;
   let scale=[1,.8,.6,.4,.2,0][Math.min(n,5)];
@@ -1147,6 +1427,12 @@ function hit(p,o,m,rem,fbSpec,hitDir){
   const dm=Math.round(m.d*scale*(o.pun?1.2:1));
   o.cd+=dm;o.dn=o.cmb;o.cs=90;
   if(o.pun&&n===0)pnT=70;
+
+  if(!NET.active&&o===E){
+    TRN.lastDmg=dm;
+    TRN.lastScale=Math.round(scale*100);
+    if(o.cd>TRN.maxComboDmg)TRN.maxComboDmg=o.cd;
+  }
 
   o.hp-=dm;
   o.g=Math.min(4,o.g+dm/2500);
@@ -1162,21 +1448,85 @@ function hit(p,o,m,rem,fbSpec,hitDir){
   }
 }
 
-function cpu(c,p,i){
+function isThreatIncoming(c,p){
+  const d=Math.abs(p.x-c.x);
+  const atkNear=(p.s==='atk'||p.s==='ch')&&d<210;
+  const fbNear=fbs.some(b=>b.o===p&&!b.dead&&Math.abs(b.x-c.x)<190);
+  return atkNear||fbNear;
+}
+
+function applyDummyGuard(c,p,i){
+  const bk=c.f>0?'l':'r';
+  i[bk]=1;
+  const isOverheadAtk=p.s==='atk'&&p.m&&p.m.h==='m';
+  const isAirApproach=p.y<0||p.s==='air'||p.s==='js';
+  const isOverheadFb=fbs.some(b=>b.o===p&&!b.dead&&FBS[b.kind]&&FBS[b.kind].h==='m'&&Math.abs(b.x-c.x)<160);
+  i.d=(isOverheadAtk||isAirApproach||isOverheadFb)?0:1;
+}
+
+function trainingDummyAI(c,p,i){
   i.l=i.r=i.u=i.d=0;i.pr={};i.h={};
-  if(DM===0)return;
-  if(DM===1){
-    const bk=c.f>0?'l':'r';
-    i[bk]=1;
-    const isOverheadAtk=p.s==='atk'&&p.m&&p.m.h==='m';
-    const isAirApproach=p.y<0||p.s==='air'||p.s==='js';
-    const isOverheadFb=fbs.some(b=>b.o===p&&!b.dead&&FBS[b.kind]&&FBS[b.kind].h==='m'&&Math.abs(b.x-c.x)<150);
-    i.d=(isOverheadAtk||isAirApproach||isOverheadFb)?0:1;
-    return;
+
+  // 1. Check Throw Tech
+  if(c.thWin>0){
+    if(TRN.tech===1||(TRN.tech===2&&Math.random()<.5)){
+      i.pr.T=1;
+      return;
+    }
   }
+
+  // 2. Check Reversal on recovery or guard-cancel
+  const justRecovered=(['hs','bs','gb','dn'].includes(TRN.prevES)&&c.s==='i');
+  if(TRN.rev>0){
+    const fw=c.f>0?'r':'l',bk=c.f>0?'l':'r';
+    if(TRN.rev===3&&((c.s==='dn'&&c.t<=2)||c.s==='bs')){
+      i[bk]=1;i.pr.SYS=1;return;
+    }
+    if(justRecovered){
+      if(TRN.rev===1){i.d=1;i.pr.P=1;return}
+      if(TRN.rev===2){
+        if(c.cid===2){i[bk]=1;i.pr.X=1;return}
+        i[fw]=1;i.pr.X=1;return;
+      }
+      if(TRN.rev===4){i.pr.T=1;return}
+      if(TRN.rev===5){i.u=1;i[bk]=1;return}
+    }
+  }
+
+  // 3. Guard Modes override when idle/blockstun
+  const threat=isThreatIncoming(c,p);
+  if(c.s==='i'&&!threat){
+    TRN.guardHitCnt=0;
+    TRN.randBlk=(Math.random()<.5)?1:0;
+  }
+  if(TRN.guard>0){
+    let shouldGuard=false;
+    if(TRN.guard===1)shouldGuard=true;
+    else if(TRN.guard===2)shouldGuard=(TRN.guardHitCnt===0);
+    else if(TRN.guard===3)shouldGuard=(TRN.guardHitCnt>=1);
+    else if(TRN.guard===4)shouldGuard=(TRN.randBlk===1);
+
+    if(shouldGuard){
+      applyDummyGuard(c,p,i);
+      return;
+    }
+  }
+
+  // 4. Base Dummy State
+  const dm=TRN.dummy;
+  if(dm===0)return; // 立ち
+  if(dm===1){i.d=1;return} // しゃがみ
+  if(dm===2){if(c.s==='i')i.u=1;return} // ジャンプ
+  if(dm===3||dm===4){
+    const level=(dm===3?2:3);
+    cpuLogic(c,p,i,level);
+  }
+}
+
+function cpuLogic(c,p,i,level){
   const d=Math.abs(p.x-c.x),fw=c.f>0?'r':'l',bk=c.f>0?'l':'r';
   if(--ai.t<=0){
-    ai.t=(DM===2?42:14)+(Math.random()*18|0);ai.f=1;
+    ai.t=(level===2?42:14)+(Math.random()*18|0);ai.f=1;
     let pool=[];
     if(c.cid===0)pool=d>250?['w','NS','NS','b','x']:d>130?['w','NK','FK','NS','FS','b']:['DP','NP','NK','BS','T','c','b','DK','FP'];
     else if(c.cid===1)pool=d>220?['w','w','BS','NS','b']:d>110?['w','FK','NS','FS','b']:['DP','NP','DS','T','FP','DK','c','b'];
@@ -1185,8 +1535,8 @@ function cpu(c,p,i){
     if(c.g>=.25&&d<110&&Math.random()<.15)pool.push('GB');
     if(c.g>=4&&Math.random()<.25)pool.push('SUP');
     ai.a=pool[Math.random()*pool.length|0];
-    if(DM===3&&p.s==='atk'&&d<150&&Math.random()<.65)ai.a=Math.random()<.5?'b':'c';
-    if(DM===3&&(c.s==='bs'||c.s==='dn')&&c.g>=1&&Math.random()<.25)ai.a='REV';
+    if(level===3&&p.s==='atk'&&d<150&&Math.random()<.65)ai.a=Math.random()<.5?'b':'c';
+    if(level===3&&(c.s==='bs'||c.s==='dn')&&c.g>=1&&Math.random()<.25)ai.a='REV';
   }
   const a=ai.a;
   if(a==='w')i[fw]=1;
@@ -1226,12 +1576,17 @@ function processInputBuffer(inp){
   }
 }
 
-function copyLocalTo1P(){
-  I.l=LOC.l;I.r=LOC.r;I.u=LOC.u;I.d=LOC.d;
-  I.pr=Object.assign({},LOC.pr);
-  I.h=Object.assign({},LOC.h);
-  while(LOC.buf.length)I.buf.push(LOC.buf.shift());
+function copyLocTo(dst){
+  dst.l=LOC.l;dst.r=LOC.r;dst.u=LOC.u;dst.d=LOC.d;
+  dst.pr=Object.assign({},LOC.pr);
+  dst.h=Object.assign({},LOC.h);
+  while(LOC.buf.length)dst.buf.push(LOC.buf.shift());
   LOC.pr={};
+}
+
+function clearInp(dst){
+  dst.l=dst.r=dst.u=dst.d=0;
+  dst.pr={};dst.h={};dst.buf=[];
 }
 
 function update(){
@@ -1252,26 +1607,66 @@ function update(){
     NET.prev2=b2;
     NET.simFr++;
   }else{
-    copyLocalTo1P();
+    // Training Mode input routing (1P / 2P control / Recording / Playback)
+    if(TRN.recState===1){
+      // Recording 2P actions
+      clearInp(I);
+      const bits=packLocalBits(LOC);
+      TRN.recData.push(bits);
+      copyLocTo(CI);
+      pushKeyLog(CI);
+      if(TRN.recData.length>=360){
+        stopRecordingAndPlay();
+      }
+    }else if(TRN.ctrl2P){
+      clearInp(I);
+      copyLocTo(CI);
+      pushKeyLog(CI);
+    }else{
+      copyLocTo(I);
+      pushKeyLog(I);
+      if(TRN.recState===2&&TRN.recData.length>0){
+        if(TRN.recWait>0){
+          TRN.recWait--;
+          clearInp(CI);
+          TRN.prev2Rec=0;
+        }else{
+          const bits=TRN.recData[TRN.recIdx++];
+          applyBitsToInp(bits,TRN.prev2Rec,CI);
+          TRN.prev2Rec=bits;
+          if(TRN.recIdx>=TRN.recData.length){
+            if(TRN.recLoop){
+              TRN.recIdx=0;
+              TRN.recWait=24;
+              TRN.prev2Rec=0;
+            }else{
+              TRN.recState=0;
+              TRN.dummy=0;
+              syncRecButtons();
+              syncTrainingMenuBtns();
+            }
+          }
+        }
+      }else{
+        trainingDummyAI(E,P,CI);
+      }
+    }
   }
 
   FR++;
   if(HS>0){HS--;return}
   if(cutT>0){cutT--;return}
-  if(ph===2)return;
-  if(ph===1){if(--pt<=0)round();return}
+  if(NET.active){
+    if(ph===2)return;
+    if(ph===1){if(--pt<=0)round();return}
+  }
 
   processInputBuffer(I);
-  if(NET.active){
-    processInputBuffer(CI);
-  }else{
-    cpu(E,P,CI);
-    if(RV&&((E.s==='dn'&&E.t<=3)||E.s==='bs')){CI[E.f>0?'l':'r']=1;CI.pr.SYS=1}
-    if(TK&&E.thWin>0)CI.pr.T=1;
-  }
+  processInputBuffer(CI);
 
   step(P,E,I);
   step(E,P,CI);
+  TRN.prevES=E.s;
   I.pr={};
   CI.pr={};
 
@@ -1388,12 +1783,19 @@ function update(){
   if(E.cs>0)E.cs--;
   if(pnT>0)pnT--;
 
-  if(--T<=0||P.hp<=0||E.hp<=0){
-    const w=P.hp>E.hp?0:E.hp>P.hp?1:-1;
-    if(w>=0)rw[w]++;
-    msg=w<0?'引き分け':w===0?'1P 勝利！':'2P 勝利！';
-    ph=1;pt=120;
-    if(rw[0]>=2||rw[1]>=2){ph=2;msg+='（画面タップで再戦）'}
+  if(NET.active){
+    if(--T<=0||P.hp<=0||E.hp<=0){
+      const w=P.hp>E.hp?0:E.hp>P.hp?1:-1;
+      if(w>=0)rw[w]++;
+      msg=w<0?'引き分け':w===0?'1P 勝利！':'2P 勝利！';
+      ph=1;pt=120;
+      if(rw[0]>=2||rw[1]>=2){ph=2;msg+='（画面タップで再戦）'}
+    }
+  }else{
+    T=3600;
+    if(P.hp<=0)P.hp=1;
+    if(E.hp<=0)E.hp=1;
+    handleTrainingAutoRecover();
   }
 }
 
@@ -1490,7 +1892,8 @@ function body(p){
     }
     X.restore();
   }
-if(s==='ch'){
+
+  if(s==='ch'){
     X.fillStyle=p.cf>=30?'rgba(255,230,80,.6)':'rgba(120,200,255,.35)';
     X.beginPath();X.arc(p.x+p.f*14,y-50,10+Math.min(p.cf,30)*.9,0,7);X.fill();
   }
@@ -1635,6 +2038,81 @@ function drawFrameMeter(){
   X.restore();
 }
 
+function drawTrainingHUD(){
+  if(NET.active)return;
+
+  // 1. Key History (Input Display) on left
+  if(TRN.keyLog&&KEY_LOG.length){
+    X.save();
+    const kx=12,ky0=108;
+    for(let idx=0;idx<Math.min(10,KEY_LOG.length);idx++){
+      const item=KEY_LOG[idx];
+      const y=ky0+idx*16;
+      X.fillStyle='rgba(15,18,28,.72)';
+      X.fillRect(kx,y-11,106,14);
+      X.font='bold 10.5px monospace';
+      X.textAlign='left';
+      X.fillStyle='#6fe3ff';
+      X.fillText(item.dir,kx+4,y);
+      X.fillStyle='#ffd34d';
+      X.fillText(item.btns.join('+'),kx+20,y);
+      X.textAlign='right';
+      X.fillStyle='#b8bfd8';
+      X.fillText(item.frames+'F',kx+102,y);
+    }
+    X.restore();
+  }
+
+  // 2. Detailed Damage / Scaling / Distance HUD on right
+  if(TRN.infoHud){
+    X.save();
+    const bx=W-176,by=58,bw=164,bh=50;
+    X.fillStyle='rgba(15,18,28,.78)';
+    X.fillRect(bx,by,bw,bh);
+    X.strokeStyle='#3c4257';X.lineWidth=1;
+    X.strokeRect(bx,by,bw,bh);
+    const dist=Math.max(0,Math.round(Math.abs(E.x-P.x)-CW));
+    X.font='bold 10.5px system-ui';
+    X.textAlign='left';X.fillStyle='#b8bfd8';
+    X.fillText('単発ダメージ',bx+7,by+14);
+    X.fillText('最大コンボ',bx+7,by+29);
+    X.fillText('補正 / 距離',bx+7,by+44);
+
+    X.textAlign='right';
+    X.fillStyle='#eceef6';
+    X.fillText(TRN.lastDmg+'',bx+bw-7,by+14);
+    X.fillStyle='#ffd34d';
+    X.fillText(TRN.maxComboDmg+'',bx+bw-7,by+29);
+    X.fillStyle='#6fe3ff';
+    X.fillText(TRN.lastScale+'% / '+dist+'px',bx+bw-7,by+44);
+    X.restore();
+  }
+
+  // 3. Recording / Playback Banner
+  if(TRN.recState===1){
+    X.save();
+    X.fillStyle='rgba(190,30,50,.85)';
+    X.fillRect(W/2-115,44,230,22);
+    X.fillStyle='#fff';X.font='bold 11.5px system-ui';X.textAlign='center';
+    X.fillText('● REC中 (2P操作) '+TRN.recData.length+'/360F',W/2,59);
+    X.restore();
+  }else if(TRN.recState===2){
+    X.save();
+    X.fillStyle='rgba(23,115,90,.85)';
+    X.fillRect(W/2-95,44,190,22);
+    X.fillStyle='#fff';X.font='bold 11.5px system-ui';X.textAlign='center';
+    X.fillText('▶ 録画再生中 ('+TRN.recIdx+'/'+TRN.recData.length+'F)',W/2,59);
+    X.restore();
+  }else if(TRN.ctrl2P){
+    X.save();
+    X.fillStyle='rgba(90,50,140,.85)';
+    X.fillRect(W/2-80,44,160,22);
+    X.fillStyle='#fff';X.font='bold 11.5px system-ui';X.textAlign='center';
+    X.fillText('🎮 2P操作モード中',W/2,59);
+    X.restore();
+  }
+}
+
 function draw(){
   X.fillStyle='#0d0e14';X.fillRect(0,0,W,360);
   X.fillStyle='#232738';X.fillRect(0,G,W,360-G);
@@ -1642,6 +2120,13 @@ function draw(){
   X.strokeStyle='rgba(255,255,255,.045)';X.lineWidth=1;
   for(let gy=G-20;gy>=120;gy-=20){
     X.beginPath();X.moveTo(0,gy);X.lineTo(W,gy);X.stroke();
+  }
+  // Vertical distance grid lines in Training Mode
+  if(!NET.active){
+    X.strokeStyle='rgba(255,255,255,.03)';
+    for(let gx=80;gx<W;gx+=80){
+      X.beginPath();X.moveTo(gx,120);X.lineTo(gx,G);X.stroke();
+    }
   }
 
   for(const[q,l]of[[P,1],[E,0]]){
@@ -1657,23 +2142,32 @@ function draw(){
     X.fillStyle='#0d0e14';
     for(let k=1;k<4;k++)X.fillRect(x+w*k/4-1,30,2,7);
 
-    X.fillStyle='#fff';
-    for(let k=0;k<2;k++){
-      X.globalAlpha=k<rw[l?0:1]?1:.25;
-      X.beginPath();X.arc(l?x+8+k*14:x+w-8-k*14,47,5,0,7);X.fill();
+    if(NET.active){
+      X.fillStyle='#fff';
+      for(let k=0;k<2;k++){
+        X.globalAlpha=k<rw[l?0:1]?1:.25;
+        X.beginPath();X.arc(l?x+8+k*14:x+w-8-k*14,47,5,0,7);X.fill();
+      }
+      X.globalAlpha=1;
     }
-    X.globalAlpha=1;
     X.font='bold 11px system-ui';X.textAlign=l?'left':'right';
     let sub=CHARS[q.cid].name;
     if(NET.active&&((l&&NET.side===1)||(!l&&NET.side===2)))sub+='(あなた)';
+    if(!NET.active&&!l){
+      const dumLbl=['立ち','しゃがみ','ジャンプ','CPU弱','CPU強','REC再生'][TRN.dummy];
+      sub+=' ['+dumLbl+']';
+    }
     if(q.cid===2)sub+=' [弾:'+q.stock+'/4]';
     if(q.g>=4)sub+=' ★超必殺OK';
     X.fillStyle=q.g>=4?'#ff9ef2':'#b8bfd8';
-    X.fillText(sub,l?x+38:x+w-38,51);
+    const nameOffset=NET.active?38:4;
+    X.fillText(sub,l?x+nameOffset:x+w-nameOffset,51);
   }
 
-  X.fillStyle='#fff';X.font='bold 24px system-ui';X.textAlign='center';
-  X.fillText('∞',W/2,31);
+  if(!NET.active){
+    X.fillStyle='#38d9a9';X.font='bold 16px system-ui';X.textAlign='center';
+    X.fillText('TRAINING',W/2,27);
+  }
 
   if(pnT>0){
     X.save();X.globalAlpha=Math.min(.45,pnT/35);
@@ -1742,11 +2236,13 @@ function draw(){
   }
 
   drawFrameMeter();
+  drawTrainingHUD();
 
   for(const[q,l]of[[E,1],[P,0]])if(q.cs>0){
-    const x=l?12:W-12;X.textAlign=l?'left':'right';
-    X.fillStyle='#ffd34d';X.font='bold 18px system-ui';X.fillText(q.dn+'技コンボ',x,76);
-    X.font='bold 14px system-ui';X.fillText(q.cd+' ダメージ'+(q.pun?'（パニッシュ）':''),x,96);
+    const x=l?12:W-12,yOff=(!NET.active&&!l&&TRN.infoHud)?124:76;
+    X.textAlign=l?'left':'right';
+    X.fillStyle='#ffd34d';X.font='bold 18px system-ui';X.fillText(q.dn+'技コンボ',x,yOff);
+    X.font='bold 14px system-ui';X.fillText(q.cd+' ダメージ'+(q.pun?'（パニッシュ）':''),x,yOff+20);
   }
 
   if(cutT>0){
@@ -1781,11 +2277,84 @@ function draw(){
 }
 
 const $=id=>document.getElementById(id),bsupEl=$('bsup');
-$('gear').addEventListener('pointerdown',e=>{e.stopPropagation();$('tb').classList.toggle('open')});
-$('bgm').addEventListener('pointerdown',()=>{if(!NET.active)P.g=E.g=4});
-$('bhp').addEventListener('pointerdown',()=>{if(!NET.active){P.hp=E.hp=1e4;T=3600}});
-$('brv').addEventListener('pointerdown',e=>{if(!NET.active){RV^=1;e.target.textContent='切返し:'+(RV?'ON':'OFF')}});
-$('btk').addEventListener('pointerdown',e=>{if(!NET.active){TK^=1;e.target.textContent='投げ抜け:'+(TK?'ON':'OFF')}});
+
+/* 歯車ボタン：オフライン時はトレモ設定、オンライン時は簡易メニュー */
+$('gear').addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  if(NET.active){
+    $('tb').classList.toggle('open');
+  }else{
+    syncTrainingMenuBtns();
+    $('trn').classList.add('open');
+  }
+});
+
+$('bResetBtn').addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  resetTrainingPos(0);
+});
+
+function startRecording(){
+  if(NET.active)return;
+  TRN.recData=[];
+  TRN.recIdx=0;
+  TRN.recWait=0;
+  TRN.prev2Rec=0;
+  TRN.recState=1;
+  TRN.ctrl2P=0;
+  $('trn').classList.remove('open');
+  syncRecButtons();
+  pop(E,'● 2P録画開始！');
+}
+function stopRecordingAndPlay(){
+  TRN.recState=TRN.recData.length>0?2:0;
+  TRN.recIdx=0;
+  TRN.recWait=0;
+  TRN.prev2Rec=0;
+  if(TRN.recState===2){
+    TRN.dummy=5;
+    pop(E,'▶ 録画再生開始！');
+  }
+  syncRecButtons();
+  syncTrainingMenuBtns();
+}
+function stopPlayback(){
+  TRN.recState=0;
+  if(TRN.dummy===5)TRN.dummy=0;
+  syncRecButtons();
+  syncTrainingMenuBtns();
+}
+function syncRecButtons(){
+  const b=$('bRecBtn');
+  const info=$('tRecInfo');
+  b.classList.remove('rec','play');
+  if(TRN.recState===1){
+    b.textContent='■ 録画停止';
+    b.classList.add('rec');
+  }else if(TRN.recState===2){
+    b.textContent='⏹ 再生停止';
+    b.classList.add('play');
+  }else if(TRN.recData.length>0){
+    b.textContent='▶ 再生';
+  }else{
+    b.textContent='● 録画';
+  }
+  if(info){
+    info.textContent=TRN.recData.length>0
+      ?`録画データ：${TRN.recData.length}フレーム（約${(TRN.recData.length/60).toFixed(1)}秒）記録済み`
+      :'録画データ：なし（ボタンを押して2Pを動かすと行動を記録できます）';
+  }
+}
+
+$('bRecBtn').addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  if(NET.active)return;
+  if(TRN.recState===1)stopRecordingAndPlay();
+  else if(TRN.recState===2)stopPlayback();
+  else if(TRN.recData.length>0)stopRecordingAndPlay();
+  else startRecording();
+});
+
 bind('bsup',v=>{if(v)LOC.pr.SUP=1});
 addEventListener('pointerdown',()=>{try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume()}catch(e){}});
 const GPm=[[2,'P'],[3,'K'],[5,'S'],[0,'T'],[1,'X'],[7,'SYS']],GPs={};
@@ -1796,10 +2365,17 @@ function pollPad0(){const l=navigator.getGamepads?navigator.getGamepads():[],g=[
  LOC.l=b(14)||ax<-.5?1:0;LOC.r=b(15)||ax>.5?1:0;LOC.u=b(12)||ay<-.5?1:0;LOC.d=b(13)||ay>.5?1:0;
  for(const[i,k]of GPm){const v=b(i)?1:0;LOC.h[k]=v;if(v&&!GPs[i])pushBtn(k);GPs[i]=v}
  const s=b(4)?1:0;if(s&&!GPs[4])LOC.pr.SUP=1;GPs[4]=s}
+
 function drawExtra(){
- const myF=(NET.active&&NET.side===2)?E:P;
- bsupEl.classList.toggle('rdy',myF.g>=4);
- if(ph<2){X.save();X.fillStyle='#fff';X.strokeStyle='#000';X.lineWidth=3;X.font='bold 24px system-ui';X.textAlign='center';const t=Math.max(0,Math.ceil(T/60));X.strokeText(t,W/2,32);X.fillText(t,W/2,32);X.restore()}}
+  const myF=(NET.active&&NET.side===2)?E:P;
+  bsupEl.classList.toggle('rdy',myF.g>=4);
+  if(NET.active&&ph<2){
+    X.save();X.fillStyle='#fff';X.strokeStyle='#000';X.lineWidth=3;X.font='bold 24px system-ui';X.textAlign='center';
+    const t=Math.max(0,Math.ceil(T/60));
+    X.strokeText(t,W/2,32);X.fillText(t,W/2,32);X.restore();
+  }
+}
+
 let last=0,acc=0;
 function loop(t){
   acc+=Math.min(50,t-last);last=t;
@@ -1831,6 +2407,7 @@ function bind(id,fn){
   e.addEventListener('pointermove',v=>{if(v.pointerId===id)mv(v)});
   for(const t of['pointerup','pointercancel'])e.addEventListener(t,v=>{if(v.pointerId===id)off()});
 })();
+
 bind('bp',v=>{LOC.h.P=v;if(v)pushBtn('P')});
 bind('bk',v=>{LOC.h.K=v;if(v)pushBtn('K')});
 bind('bs',v=>{LOC.h.S=v;if(v)pushBtn('S')});
@@ -1838,19 +2415,114 @@ bind('bt',v=>{LOC.h.T=v;if(v)pushBtn('T')});
 bind('be',v=>{LOC.h.X=v;if(v)pushBtn('X')});
 bind('bsys',v=>{LOC.h.SYS=v;if(v)pushBtn('SYS')});
 
-document.getElementById('bc1').addEventListener('pointerdown',()=>{if(!NET.active){cSel[0]=(cSel[0]+1)%3;NET.myCid=cSel[0];syncLobbyCharBtns();setChars()}});
-document.getElementById('bc2').addEventListener('pointerdown',()=>{if(!NET.active){cSel[1]=(cSel[1]+1)%3;setChars()}});
-const bm=document.getElementById('bm');
-bm.addEventListener('pointerdown',()=>{if(!NET.active){DM=(DM+1)%4;bm.textContent=['相手:停止','相手:ガード','相手:技を振る','相手:CPU'][DM]}});
-const bhb=document.getElementById('bhb');
-bhb.addEventListener('pointerdown',()=>{HB_VIS^=1;bhb.textContent='判定:'+(HB_VIS?'ON':'OFF')});
-const bfm=document.getElementById('bfm');
-bfm.addEventListener('pointerdown',()=>{FM_VIS^=1;bfm.textContent='Fメーター:'+(FM_VIS?'ON':'OFF')});
-const bsnd=document.getElementById('bsnd');
-bsnd.addEventListener('pointerdown',()=>{SND^=1;bsnd.textContent='音:'+(SND?'ON':'OFF')});
+/* オンライン時用の簡易メニューイベント */
+const bhb=$('bhb');
+bhb.addEventListener('pointerdown',()=>{HB_VIS^=1;bhb.textContent='判定:'+(HB_VIS?'ON':'OFF');syncTrainingMenuBtns()});
+const bfm=$('bfm');
+bfm.addEventListener('pointerdown',()=>{FM_VIS^=1;bfm.textContent='Fメーター:'+(FM_VIS?'ON':'OFF');syncTrainingMenuBtns()});
+const bsnd=$('bsnd');
+bsnd.addEventListener('pointerdown',()=>{SND^=1;bsnd.textContent='音:'+(SND?'ON':'OFF');syncTrainingMenuBtns()});
+
+/* トレーニングモード設定イベント */
+$('trnc').addEventListener('pointerdown',()=>$('trn').classList.remove('open'));
+$('tDoReset').addEventListener('pointerdown',()=>{resetTrainingPos(0);$('trn').classList.remove('open')});
+$('tOpenMove').addEventListener('pointerdown',()=>{$('trn').classList.remove('open');renderMoveList();$('ml').classList.add('open')});
+$('tOpenOnline').addEventListener('pointerdown',()=>{$('trn').classList.remove('open');openOnlineModal()});
+
+document.querySelectorAll('[data-c1]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  cSel[0]=Number(b.dataset.c1);NET.myCid=cSel[0];setChars();resetTrainingPos(1);
+}));
+document.querySelectorAll('[data-c2]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  cSel[1]=Number(b.dataset.c2);setChars();resetTrainingPos(1);
+}));
+document.querySelectorAll('[data-pos]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  TRN.pos=Number(b.dataset.pos);syncTrainingMenuBtns();resetTrainingPos(0);
+}));
+document.querySelectorAll('[data-dum]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  TRN.dummy=Number(b.dataset.dum);
+  if(TRN.dummy===5&&TRN.recData.length>0){TRN.recState=2;TRN.recIdx=0;TRN.recWait=0;TRN.prev2Rec=0}
+  else if(TRN.dummy!==5&&TRN.recState===2){TRN.recState=0}
+  syncRecButtons();syncTrainingMenuBtns();
+}));
+document.querySelectorAll('[data-grd]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  TRN.guard=Number(b.dataset.grd);TRN.guardHitCnt=0;syncTrainingMenuBtns();
+}));
+document.querySelectorAll('[data-rev]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  TRN.rev=Number(b.dataset.rev);syncTrainingMenuBtns();
+}));
+document.querySelectorAll('[data-tch]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  TRN.tech=Number(b.dataset.tch);syncTrainingMenuBtns();
+}));
+document.querySelectorAll('[data-gg]').forEach(b=>b.addEventListener('pointerdown',()=>{
+  TRN.gaugeMode=Number(b.dataset.gg);
+  if(TRN.gaugeMode>=1){P.g=4;E.g=4}
+  syncTrainingMenuBtns();
+}));
+
+$('tCntBtn').addEventListener('pointerdown',()=>{TRN.counter^=1;syncTrainingMenuBtns()});
+$('tAutoHp').addEventListener('pointerdown',()=>{TRN.autoHp^=1;syncTrainingMenuBtns()});
+$('tInfStock').addEventListener('pointerdown',()=>{
+  TRN.infStock^=1;
+  if(TRN.infStock){if(P.cid===2)P.stock=4;if(E.cid===2)E.stock=4}
+  syncTrainingMenuBtns();
+});
+$('tResetMaxDmg').addEventListener('pointerdown',()=>{
+  TRN.maxComboDmg=0;TRN.lastDmg=0;TRN.lastScale=100;
+  pop(P,'記録リセット');
+});
+$('tRecStart').addEventListener('pointerdown',()=>startRecording());
+$('tRecPlay').addEventListener('pointerdown',()=>{
+  if(TRN.recData.length>0){stopRecordingAndPlay();$('trn').classList.remove('open')}
+});
+$('tRecLoop').addEventListener('pointerdown',()=>{TRN.recLoop^=1;syncTrainingMenuBtns()});
+$('tCtrlSide').addEventListener('pointerdown',()=>{
+  TRN.ctrl2P^=1;
+  if(TRN.ctrl2P)TRN.recState=0;
+  syncRecButtons();syncTrainingMenuBtns();
+});
+
+$('tVisHb').addEventListener('pointerdown',()=>{HB_VIS^=1;bhb.textContent='判定:'+(HB_VIS?'ON':'OFF');syncTrainingMenuBtns()});
+$('tVisFm').addEventListener('pointerdown',()=>{FM_VIS^=1;bfm.textContent='Fメーター:'+(FM_VIS?'ON':'OFF');syncTrainingMenuBtns()});
+$('tVisKey').addEventListener('pointerdown',()=>{TRN.keyLog^=1;syncTrainingMenuBtns()});
+$('tVisInfo').addEventListener('pointerdown',()=>{TRN.infoHud^=1;syncTrainingMenuBtns()});
+$('tVisSnd').addEventListener('pointerdown',()=>{SND^=1;bsnd.textContent='音:'+(SND?'ON':'OFF');syncTrainingMenuBtns()});
+
+function syncTrainingMenuBtns(){
+  document.querySelectorAll('[data-c1]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.c1)===cSel[0]));
+  document.querySelectorAll('[data-c2]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.c2)===cSel[1]));
+  document.querySelectorAll('[data-pos]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.pos)===TRN.pos));
+  document.querySelectorAll('[data-dum]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.dum)===TRN.dummy));
+  document.querySelectorAll('[data-grd]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.grd)===TRN.guard));
+  document.querySelectorAll('[data-rev]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.rev)===TRN.rev));
+  document.querySelectorAll('[data-tch]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.tch)===TRN.tech));
+  document.querySelectorAll('[data-gg]').forEach(b=>b.classList.toggle('sel',Number(b.dataset.gg)===TRN.gaugeMode));
+
+  $('tCntBtn').textContent='強制パニッシュ:'+(TRN.counter?'ON':'OFF');
+  $('tCntBtn').classList.toggle('sel',!!TRN.counter);
+  $('tAutoHp').textContent='体力自動回復:'+(TRN.autoHp?'ON':'OFF');
+  $('tAutoHp').classList.toggle('sel',!!TRN.autoHp);
+  $('tInfStock').textContent='特殊弾ストックMAX:'+(TRN.infStock?'ON':'OFF');
+  $('tInfStock').classList.toggle('sel',!!TRN.infStock);
+  $('tRecLoop').textContent='ループ再生:'+(TRN.recLoop?'ON':'OFF');
+  $('tRecLoop').classList.toggle('sel',!!TRN.recLoop);
+  $('tCtrlSide').textContent='操作対象:'+(TRN.ctrl2P?'2P':'1P');
+  $('tCtrlSide').classList.toggle('sel',!!TRN.ctrl2P);
+
+  $('tVisHb').textContent='判定表示:'+(HB_VIS?'ON':'OFF');
+  $('tVisHb').classList.toggle('sel',!!HB_VIS);
+  $('tVisFm').textContent='Fメーター:'+(FM_VIS?'ON':'OFF');
+  $('tVisFm').classList.toggle('sel',!!FM_VIS);
+  $('tVisKey').textContent='キー履歴:'+(TRN.keyLog?'ON':'OFF');
+  $('tVisKey').classList.toggle('sel',!!TRN.keyLog);
+  $('tVisInfo').textContent='詳細数値:'+(TRN.infoHud?'ON':'OFF');
+  $('tVisInfo').classList.toggle('sel',!!TRN.infoHud);
+  $('tVisSnd').textContent='音:'+(SND?'ON':'OFF');
+  $('tVisSnd').classList.toggle('sel',!!SND);
+  syncRecButtons();
+}
 
 function renderMoveList(){
-  const idx=(NET.active&&NET.side===2)?1:0;
+  const idx=(NET.active&&NET.side===2)?1:(TRN.ctrl2P?1:0);
   const C0=CHARS[cSel[idx]],M=C0.M;
   document.getElementById('mlt').textContent=C0.name+'（'+C0.role+'）';
   const rows=[
@@ -1878,9 +2550,9 @@ document.getElementById('bml').addEventListener('pointerdown',()=>{renderMoveLis
 document.getElementById('mlc').addEventListener('pointerdown',()=>document.getElementById('ml').classList.remove('open'));
 renderMoveList();
 
-/* ===== オンラインロビーUI＆通信イベント ===== */
 function openOnlineModal(){
   $('tb').classList.remove('open');
+  $('trn').classList.remove('open');
   syncLobbyCharBtns();
   $('onl').classList.add('open');
 }
@@ -1897,7 +2569,7 @@ document.querySelectorAll('#oCharRow .obtn').forEach(btn=>{
   btn.addEventListener('pointerdown',()=>{
     NET.myCid=Number(btn.dataset.cid);
     syncLobbyCharBtns();
-    if(!NET.active){cSel[0]=NET.myCid;setChars()}
+    if(!NET.active){cSel[0]=NET.myCid;setChars();resetTrainingPos(1)}
   });
 });
 document.querySelectorAll('[data-dly]').forEach(btn=>{
@@ -1911,7 +2583,7 @@ function bindConnEvents(conn,isHost){
   NET.conn=conn;
   conn.on('open',()=>{
     if(!isHost){
-      updateNetUI('接続成功！対戦開始を同期中...');
+      updateModeUI('接続成功！対戦開始を同期中...');
       sendNet({t:'hello',cid:NET.myCid,dly:NET.delay});
     }
   });
@@ -1939,11 +2611,11 @@ function bindConnEvents(conn,isHost){
           startNetMatch(1,cid1,cid2,dly);
         }else{
           pop(E,'相手が再戦を希望！');
-          updateNetUI('相手が再戦を希望しています（「もう1戦」で開始）');
+          updateModeUI('相手が再戦を希望しています（「もう1戦」で開始）');
         }
       }else{
         pop(P,'相手が再戦を希望！');
-        updateNetUI('相手が再戦を希望しています（「もう1戦」で開始）');
+        updateModeUI('相手が再戦を希望しています（「もう1戦」で開始）');
       }
     }
   });
@@ -1953,14 +2625,14 @@ function bindConnEvents(conn,isHost){
 
 function createHostRoom(retryCount){
   if(typeof Peer==='undefined'){
-    updateNetUI('通信ライブラリの読み込みに失敗しました。ネット接続を確認してください。');
+    updateModeUI('通信ライブラリの読み込みに失敗しました。ネット接続を確認してください。');
     return;
   }
   stopNetMatch();
   const code=String(1000+Math.floor(Math.random()*9000));
   const peerId='fg2d-jp-v1-'+code;
   NET.room=code;
-  updateNetUI('部屋を作成中...');
+  updateModeUI('部屋を作成中...');
   const peer=new Peer(peerId);
   NET.peer=peer;
   peer.on('open',()=>{
@@ -1968,7 +2640,7 @@ function createHostRoom(retryCount){
     $('oRoomCode').style.display='inline-block';
     $('oCopyBtn').style.display='inline-block';
     $('oDiscBtn').style.display='inline-block';
-    updateNetUI('待機中... 合言葉【 '+code+' 】を相手に入力してもらってください');
+    updateModeUI('待機中... 合言葉【 '+code+' 】を相手に入力してもらってください');
   });
   peer.on('connection',conn=>{
     if(NET.conn){try{conn.close()}catch(e){}return}
@@ -1995,16 +2667,16 @@ $('oCopyBtn').addEventListener('pointerdown',()=>{
 
 $('oJoinBtn').addEventListener('pointerdown',()=>{
   if(typeof Peer==='undefined'){
-    updateNetUI('通信ライブラリの読み込みに失敗しました。');
+    updateModeUI('通信ライブラリの読み込みに失敗しました。');
     return;
   }
   const code=($('oJoinInp').value||'').replace(/\D/g,'').slice(0,4);
   if(code.length!==4){
-    updateNetUI('4桁の数字を入力してください');
+    updateModeUI('4桁の数字を入力してください');
     return;
   }
   stopNetMatch();
-  updateNetUI('合言葉【 '+code+' 】の部屋に接続中...');
+  updateModeUI('合言葉【 '+code+' 】の部屋に接続中...');
   $('oDiscBtn').style.display='inline-block';
   const peer=new Peer();
   NET.peer=peer;
@@ -2027,17 +2699,20 @@ function requestRematch(){
     startNetMatch(1,cid1,cid2,dly);
   }else{
     pop(NET.side===1?P:E,'再戦リクエスト送信');
-    updateNetUI('相手の再戦応答を待っています...');
+    updateModeUI('相手の再戦応答を待っています...');
   }
 }
 
 $('oRematchBtn').addEventListener('pointerdown',()=>requestRematch());
-$('oDiscBtn').addEventListener('pointerdown',()=>stopNetMatch('切断しました（オフラインモード）'));
+$('oDiscBtn').addEventListener('pointerdown',()=>stopNetMatch('切断しました（トレーニングモード）'));
 
 const KM={ArrowLeft:'l',a:'l',ArrowRight:'r',d:'r',ArrowUp:'u',w:'u',ArrowDown:'d',s:'d'};
 const KB={j:'P',z:'P',k:'K',x:'K',l:'S',c:'S',u:'T',v:'T',i:'X',b:'X',o:'SYS',n:'SYS',Enter:'SUP',' ':'SUP'};
 addEventListener('keydown',e=>{
   if(document.activeElement&&document.activeElement.tagName==='INPUT')return;
+  if(!NET.active&&(e.key==='r'||e.key==='R'||e.key==='Backspace')){
+    resetTrainingPos(0);return;
+  }
   if(KM[e.key])LOC[KM[e.key]]=1;
   else if(KB[e.key]&&!e.repeat){
     const k=KB[e.key];
@@ -2052,9 +2727,8 @@ addEventListener('keyup',e=>{
 });
 
 C.addEventListener('pointerdown',e=>{
-  if(ph===2){
-    if(NET.active){requestRematch();return}
-    rw=[0,0];P.g=E.g=0;round();return;
+  if(NET.active&&ph===2){
+    requestRematch();return;
   }
   const r=C.getBoundingClientRect(),cx=(e.clientX-r.left)/r.width*W,cy=(e.clientY-r.top)/r.height*360;
   if(NET.active&&NET.side===2){
@@ -2063,4 +2737,9 @@ C.addEventListener('pointerdown',e=>{
     if(P.g>=4&&cx<=210&&cy<=95)LOC.pr.SUP=1;
   }
 });
+
+// 初期起動時はトレーニングモードとして初期化
+resetTrainingPos(1);
+syncTrainingMenuBtns();
+updateModeUI();
 </script></body></html>
