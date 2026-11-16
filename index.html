@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>2D対戦格闘ゲーム 完全仕様テスト版</title>
+<title>2D対戦格闘ゲーム オンライン対応版</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 :root{--bg:#eef0f5;--fg:#14161f;--bt:#d6dae6;--bd:#8d94ad;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14151b;--fg:#eceef6;--bt:#2a2d3a;--bd:#5a617a}}
@@ -16,17 +17,29 @@ canvas{width:100%;flex:1;min-height:0;object-fit:contain;background:#0d0e14}
 #b{flex:1;max-width:290px;margin-left:10px;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,64px)}
 #tb{position:fixed;top:calc(env(safe-area-inset-top,0px) + 34px);right:6px;z-index:9;background:var(--bg);border:2px solid var(--bd);border-radius:10px;display:none;flex-direction:column;gap:4px;padding:6px}
 #tb.open{display:flex}
-#gear{position:fixed;top:calc(env(safe-area-inset-top,0px) + 2px);right:4px;z-index:9;width:32px;height:28px;padding:0;font-size:15px;border-radius:8px;opacity:.75}
+#gear{position:fixed;top:calc(env(safe-area-inset-top,0px) + 2px);right:4px;z-index:9;width:32px;height:28px;padding:0;font-size:15px;border-radius:8px;opacity:.85}
+#bonlBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 2px);left:4px;z-index:9;height:28px;padding:0 8px;font-size:11px;border-radius:8px;opacity:.9;border-color:#4aa3ff}
+#bonlBtn.live{border-color:#38d9a9;color:#38d9a9}
 #tb button{font:bold 11px system-ui;padding:5px 7px;border-radius:8px}
+#tb button:disabled{opacity:.4}
 button{background:var(--bt);color:var(--fg);border:2px solid var(--bd);border-radius:14px;font:bold 18px system-ui;touch-action:none;padding:0}
 button.on{filter:brightness(1.5)}
 #bsys{border-color:#e0a84d;color:#ffd34d}
-#ml{position:fixed;inset:0;background:rgba(10,12,18,.92);color:#eceef6;display:none;flex-direction:column;padding:16px;overflow-y:auto;z-index:10;touch-action:pan-y}
-#ml.open{display:flex}
-#ml h2{margin:0 0 8px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+#ml,#onl{position:fixed;inset:0;background:rgba(10,12,18,.94);color:#eceef6;display:none;flex-direction:column;padding:16px;overflow-y:auto;z-index:10;touch-action:pan-y}
+#ml.open,#onl.open{display:flex}
+#ml h2,#onl h2{margin:0 0 10px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
 #ml table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px}
 #ml th,#ml td{border:1px solid #444960;padding:5px 6px;text-align:left}
 #ml th{background:#232738}
+.ocard{background:#1b1e2b;border:1px solid #444960;border-radius:12px;padding:12px;margin-bottom:10px}
+.ocard h3{margin:0 0 8px;font-size:14px;color:#6fe3ff}
+.orow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.obtn{padding:8px 12px;font-size:13px;border-radius:10px;background:#2a2d3a;color:#eceef6;border:2px solid #5a617a;touch-action:manipulation}
+.obtn.sel{border-color:#ffd34d;color:#ffd34d;background:#343228}
+.obtn.pri{border-color:#4aa3ff;background:#1d3554;color:#fff}
+.obtn.dan{border-color:#ff5d5d;background:#4a2028;color:#fff}
+.oinp{background:#0d0e14;color:#fff;border:2px solid #5a617a;border-radius:10px;padding:8px 10px;font:bold 18px monospace;width:110px;text-align:center;letter-spacing:3px;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+.codebox{font:bold 24px monospace;letter-spacing:4px;color:#ffd34d;background:#0d0e14;padding:6px 14px;border-radius:8px;border:1px solid #5a617a}
 #bsup{grid-column:1/-1;height:38px;font-size:15px;border-color:#e0a84d;color:#ffd34d;visibility:hidden}
 #bsup.rdy{visibility:visible;animation:pl .7s infinite alternate}
 @keyframes pl{to{filter:brightness(1.7)}}
@@ -40,8 +53,10 @@ canvas{order:1;flex:1;min-width:0;height:100%}
 }
 </style></head><body>
 <canvas id="c" width="1280" height="720"></canvas>
+<button id="bonlBtn">🌐 オンライン</button>
 <button id="gear">⚙</button>
 <div id="tb">
+  <button id="bonlMenu">🌐 オンライン対戦</button>
   <button id="bc1">1P:弾キャラ</button>
   <button id="bc2">2P:肉弾キャラ</button>
   <button id="bm">相手:停止</button>
@@ -66,6 +81,50 @@ canvas{order:1;flex:1;min-width:0;height:100%}
 <div id="ml">
   <h2><span id="mlt">技表</span><button id="mlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
   <div id="mlb"></div>
+</div>
+<div id="onl">
+  <h2><span>🌐 オンライン対戦（合言葉マッチ）</span><button id="onlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
+  <div class="ocard">
+    <h3>1. 自分の使用キャラ</h3>
+    <div class="orow" id="oCharRow">
+      <button class="obtn sel" data-cid="0">弾キャラ</button>
+      <button class="obtn" data-cid="1">肉弾キャラ</button>
+      <button class="obtn" data-cid="2">特殊キャラ</button>
+    </div>
+    <div style="margin-top:10px" class="orow">
+      <span style="font-size:12px;color:#b8bfd8">入力遅延（ラグ吸収）：</span>
+      <button class="obtn" data-dly="2">2F</button>
+      <button class="obtn sel" data-dly="3">3F(標準)</button>
+      <button class="obtn" data-dly="4">4F</button>
+      <button class="obtn" data-dly="5">5F</button>
+    </div>
+  </div>
+  <div class="ocard" id="oSetupCard">
+    <h3>2. 対戦方法を選ぶ</h3>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;color:#b8bfd8;margin-bottom:6px">【部屋を作る（1P側）】合言葉を発行して相手を待ちます</div>
+      <div class="orow">
+        <button class="obtn pri" id="oHostBtn">部屋を作る</button>
+        <span class="codebox" id="oRoomCode" style="display:none">----</span>
+        <button class="obtn" id="oCopyBtn" style="display:none">コピー</button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #33384d;padding-top:10px">
+      <div style="font-size:12px;color:#b8bfd8;margin-bottom:6px">【部屋に入る（2P側）】相手から聞いた4桁の数字を入力</div>
+      <div class="orow">
+        <input class="oinp" id="oJoinInp" type="tel" maxlength="4" placeholder="0000" inputmode="numeric">
+        <button class="obtn pri" id="oJoinBtn">参加する</button>
+      </div>
+    </div>
+  </div>
+  <div class="ocard">
+    <h3>通信ステータス</h3>
+    <div id="oStat" style="font-size:13px;color:#ffd34d;line-height:1.5">未接続（現在はオフラインモードです）</div>
+    <div class="orow" style="margin-top:10px">
+      <button class="obtn pri" id="oRematchBtn" style="display:none">もう1戦（同期リセット）</button>
+      <button class="obtn dan" id="oDiscBtn" style="display:none">切断してオフラインに戻る</button>
+    </div>
+  </div>
 </div>
 <script>
 const C=document.getElementById('c'),X=C.getContext('2d'),DPR=Math.min(3,Math.max(2,Math.ceil(devicePixelRatio||2)));C.width=640*DPR;C.height=360*DPR;X.scale(DPR,DPR);
@@ -214,21 +273,118 @@ const mk=(x,cid)=>({
 let P=mk(160,0),E=mk(480,1);
 let fbs=[],sparks=[],ph=0,pt=0,msg='',rw=[0,0],ai={t:0,a:'x',f:0},FR=0,DM=0,pnT=0,cutT=0,cutTxt='',cutCol='#fff';
 let T=3600,HS=0,SHK=0,SID=0,RV=0,TK=0;
-const I={l:0,r:0,u:0,d:0,pr:{},h:{},buf:[]},CI={l:0,r:0,u:0,d:0,pr:{},h:{}};
 
-/* ===== フレームメーター用データ構造 ===== */
+const mkInp=()=>({l:0,r:0,u:0,d:0,pr:{},h:{},buf:[]});
+const LOC=mkInp(),I=mkInp(),CI=mkInp();
+const BTN_KEYS=['P','K','S','T','X','SYS'];
+
+/* ===== オンライン同期（入力遅延ロックステップ方式） ===== */
+const NET={
+  peer:null,conn:null,active:0,side:0,room:'',myCid:0,delay:3,
+  simFr:0,locSentUpTo:-1,
+  in1:new Map(),in2:new Map(),
+  prev1:0,prev2:0,
+  rematchSelf:0,rematchPeer:0,
+  waitFrames:0
+};
+
+function packLocalBits(inp){
+  let b=0;
+  if(inp.l)b|=1;
+  if(inp.r)b|=2;
+  if(inp.u)b|=4;
+  if(inp.d)b|=8;
+  if(inp.h.P)b|=16;
+  if(inp.h.K)b|=32;
+  if(inp.h.S)b|=64;
+  if(inp.h.T)b|=128;
+  if(inp.h.X)b|=256;
+  if(inp.h.SYS)b|=512;
+  if(inp.pr.SUP)b|=1024;
+  return b;
+}
+
+function applyBitsToInp(bits,prevBits,dst){
+  dst.l=(bits&1)?1:0;
+  dst.r=(bits&2)?1:0;
+  dst.u=(bits&4)?1:0;
+  dst.d=(bits&8)?1:0;
+  dst.pr={};
+  for(let idx=0;idx<BTN_KEYS.length;idx++){
+    const k=BTN_KEYS[idx];
+    const mask=1<<(4+idx);
+    const cur=(bits&mask)?1:0;
+    const prv=(prevBits&mask)?1:0;
+    dst.h[k]=cur;
+    if(cur&&!prv){
+      dst.pr[k]=1;
+      dst.buf.push({b:k,t:14});
+    }
+  }
+  if(bits&1024)dst.pr.SUP=1;
+}
+
+function sendNet(obj){
+  if(NET.conn&&NET.conn.open){
+    try{NET.conn.send(obj)}catch(e){}
+  }
+}
+
+function pumpLocalNetInputs(){
+  if(!NET.active)return;
+  const target=NET.simFr+NET.delay;
+  const myMap=NET.side===1?NET.in1:NET.in2;
+  const bits=packLocalBits(LOC);
+  while(NET.locSentUpTo<target){
+    NET.locSentUpTo++;
+    myMap.set(NET.locSentUpTo,bits);
+  }
+  LOC.pr.SUP=0;
+  // パケットロス耐性のため直近6フレーム分の確定入力をまとめて送信
+  const list=[];
+  for(let f=Math.max(0,NET.locSentUpTo-5);f<=NET.locSentUpTo;f++){
+    if(myMap.has(f))list.push([f,myMap.get(f)]);
+  }
+  sendNet({t:'in',list});
+}
+
+function startNetMatch(side,cid1,cid2,delay){
+  NET.active=1;
+  NET.side=side;
+  NET.delay=delay;
+  NET.simFr=0;
+  NET.locSentUpTo=delay-1;
+  NET.in1.clear();
+  NET.in2.clear();
+  NET.prev1=0;
+  NET.prev2=0;
+  NET.rematchSelf=0;
+  NET.rematchPeer=0;
+  NET.waitFrames=0;
+  for(let f=0;f<delay;f++){
+    NET.in1.set(f,0);
+    NET.in2.set(f,0);
+  }
+  Object.assign(LOC,mkInp());
+  Object.assign(I,mkInp());
+  Object.assign(CI,mkInp());
+  cSel=[cid1,cid2];
+  rw=[0,0];
+  DM=0;RV=0;TK=0;
+  setChars();
+  P.g=0;E.g=0;
+  round();
+  updateNetUI();
+  document.getElementById('onl').classList.remove('open');
+  document.getElementById('tb').classList.remove('open');
+  pop(side===1?P:E,'あなたは '+(side===1?'1P (左)':'2P (右)'));
+}
+
+function stopNetMatch(reason){
+  if(NET.conn){try{NET.conn.close()}catch(e){}NET.conn=null}
+  if(NET.peer){try{NET.peer.destroy()}catch(e){}NET.peer=nu
 const FM={
-  max:64,
-  p:[],
-  e:[],
-  idle:0,
-  active:0,
-  adv:null,
-  lastMove:'',
-  lastData:null,
-  atkSide:0,
-  atkBusy:0,
-  defBusy:0
+  max:64,p:[],e:[],idle:0,active:0,adv:null,lastMove:'',lastData:null,atkSide:0,atkBusy:0,defBusy:0
 };
 function resetFM(){
   FM.p=[];FM.e=[];FM.idle=0;FM.active=0;FM.adv=null;FM.atkSide=0;FM.atkBusy=0;FM.defBusy=0;
@@ -258,34 +414,19 @@ function classifyFrame(q){
 function recordFM(){
   const pBusy=isBusy(P),eBusy=isBusy(E);
   if(pBusy||eBusy){
-    if(!FM.active){
-      resetFM();
-      FM.active=1;
-    }
+    if(!FM.active){resetFM();FM.active=1}
     FM.idle=0;
     if(P.s==='atk'&&P.fr===1&&P.m){
-      FM.atkSide=1;FM.lastMove=P.m.n;
-      FM.lastData={s:P.m.s,a:P.m.a||1,t:P.m.t};
+      FM.atkSide=1;FM.lastMove=P.m.n;FM.lastData={s:P.m.s,a:P.m.a||1,t:P.m.t};
     }else if(E.s==='atk'&&E.fr===1&&E.m&&FM.atkSide!==1){
-      FM.atkSide=2;FM.lastMove=E.m.n;
-      FM.lastData={s:E.m.s,a:E.m.a||1,t:E.m.t};
+      FM.atkSide=2;FM.lastMove=E.m.n;FM.lastData={s:E.m.s,a:E.m.a||1,t:E.m.t};
     }
-    if(FM.atkSide===1){
-      if(pBusy)FM.atkBusy++;
-      if(eBusy)FM.defBusy++;
-    }else if(FM.atkSide===2){
-      if(eBusy)FM.atkBusy++;
-      if(pBusy)FM.defBusy++;
-    }
+    if(FM.atkSide===1){if(pBusy)FM.atkBusy++;if(eBusy)FM.defBusy++}
+    else if(FM.atkSide===2){if(eBusy)FM.atkBusy++;if(pBusy)FM.defBusy++}
   }else if(FM.active){
-    if(FM.adv===null&&FM.atkSide>0&&FM.defBusy>0){
-      FM.adv=FM.defBusy-FM.atkBusy;
-    }
+    if(FM.adv===null&&FM.atkSide>0&&FM.defBusy>0)FM.adv=FM.defBusy-FM.atkBusy;
     FM.idle++;
-    if(FM.idle>28){
-      FM.active=0;
-      return;
-    }
+    if(FM.idle>28){FM.active=0;return}
   }else{
     return;
   }
@@ -317,7 +458,6 @@ function go(p,m){
   if(m.hop){p.y=-36;p.vy=-6.8}
 }
 
-/* ===== 投げ成立時の専用演出開始 ===== */
 function executeThrowAnim(atk,def,m,dir){
   const thType=m.thType||'slam';
   const dur=thType==='suplex'?30:thType==='drain'?28:26;
@@ -329,7 +469,6 @@ function executeThrowAnim(atk,def,m,dir){
   se('grab');
 }
 
-/* ===== 厳密な骨格・部位座標計算 (getPose) — 予備モーション＆投げモーション対応 ===== */
 const R=a=>a*Math.PI/180;
 function limbPts(ox,oy,a1,l1,a2,l2){
   const jx=ox+Math.sin(R(a1))*l1,jy=oy+Math.cos(R(a1))*l1;
@@ -354,14 +493,12 @@ function getPose(p){
   if(s==='gb'){ln=16;aF=[-20,10];aB=[-30,0]}
   if(s==='ch'){ln=-10;hh=35;aF=[-45,115];aB=[-55,105];lF=[32,12];lB=[-32,-12]}
 
-  // 投げ抜け猶予中の掴み合いポーズ
   if(p.thWin>0||(s==='atk'&&m&&m.th&&p.hit)){
     hh=35;ln=6;
     aF=[75,95];aB=[65,90];
     lF=[36,10];lB=[-28,-12];
   }
 
-  // 投げ成功モーション（投げ側: thAtk）
   if(s==='thAtk'){
     const u=Math.min(1,p.fr/Math.max(1,p.thDur));
     if(p.thType==='suplex'){
@@ -397,7 +534,6 @@ function getPose(p){
     }
   }
 
-  // 被投げモーション（投げられ側: thDef）
   if(s==='thDef'){
     const u=Math.min(1,p.fr/Math.max(1,p.thDur));
     if(p.thType==='suplex'){
@@ -580,7 +716,6 @@ function circleRectOverlap(cx,cy,rad,b){
   return Math.hypot(cx-nx,cy-ny)<=rad;
 }
 
-/* ===== キャラの体・手足の厳密な食らい判定 (Hurtboxes) ===== */
 function getHurtboxes(p){
   const y=G+p.y;
   if(p.s==='dn'){
@@ -600,7 +735,6 @@ function getHurtboxes(p){
   ];
 }
 
-/* ===== 押し合い判定 (Pushbox) ===== */
 function getPushbox(p){
   const h=p.cr?52:82;
   return{x1:p.x-CW/2,y1:G+p.y-h,x2:p.x+CW/2,y2:G+p.y};
@@ -608,7 +742,6 @@ function getPushbox(p){
 
 const NORM_KEYS=new Set(['NP','NPM','FP','DP','BP','TC1','TC2','TCK','NK','FK','DK','BK']);
 
-/* ===== 技ごとの攻撃判定 (Hitboxes) — 手足の高さに完全追従 ===== */
 function getHitboxes(p,m){
   const po=getPose(p),y=G+p.y;
   const xFront=p.x+p.f*(CW+m.r*CW);
@@ -636,18 +769,15 @@ function getHitboxes(p,m){
   if(NORM_KEYS.has(m.k)){
     const isKick=m.k.includes('K');
     if(m.h==='l'){
-      // 下段キック・足払い・ジャブ＆ロー：蹴り足(footF)の高さ〜地面スレスレ
       const x0=po.hip.x;
       const yTop=Math.min(po.footF.y-10,y-18);
       return[{x1:Math.min(x0,xFront),y1:yTop,x2:Math.max(x0,xFront),y2:y,kind:'strike'}];
     }
     if(isKick){
-      // 立ちキック・膝蹴り・中段蹴り：蹴り足(footF)の高さ
       const x0=po.hip.x;
       const cy=po.footF.y;
       return[{x1:Math.min(x0,xFront),y1:cy-11,x2:Math.max(x0,xFront),y2:cy+11,kind:'strike'}];
     }
-    // 立ちパンチ・しゃがみパンチ・中段フック等：拳(handF)の高さ
     const x0=po.shoulder.x;
     const cy=po.handF.y;
     return[{x1:Math.min(x0,xFront),y1:cy-10,x2:Math.max(x0,xFront),y2:cy+10,kind:'strike'}];
@@ -815,7 +945,6 @@ function step(p,o,i){
     p.chaosQ--;p.chaosT=30;
   }
 
-  // 通常投げの投げ抜け猶予カウント
   if(p.thWin>0){
     resolveInput(p,i);
     if(p.thWin>0&&--p.thWin===0){
@@ -849,7 +978,6 @@ function step(p,o,i){
       if(--p.t<=0)p.s='i';
       break;
     case'thAtk':{
-      // 投げモーション進行と叩きつけ決着
       p.fr++;
       const def=p.thTarget,dir=p.thDir,m=p.thM;
       const u=Math.min(1,p.fr/Math.max(1,p.thDur));
@@ -942,7 +1070,6 @@ function isInv(o,isProj){
   if(!isProj&&o.s==='atk'&&o.m.aaInv&&o.fr<=o.m.aaInv&&(o.y<0||o.s==='air'))return 1;
   return 0;
 }
-
 function tryHit(p,o,m){
   if(isInv(o,0))return;
   if(o.s==='atk'&&o.m.aaInv&&o.fr<=o.m.aaInv&&(p.y<0||p.s==='air'))return;
@@ -1039,7 +1166,6 @@ function cpu(c,p,i){
   i.l=i.r=i.u=i.d=0;i.pr={};i.h={};
   if(DM===0)return;
   if(DM===1){
-    // ガードモード：基本はしゃがみガード、中段技・空中攻撃・中段弾のときだけ立ちガード
     const bk=c.f>0?'l':'r';
     i[bk]=1;
     const isOverheadAtk=p.s==='atk'&&p.m&&p.m.h==='m';
@@ -1083,34 +1209,71 @@ function cpu(c,p,i){
   }
 }
 
+function processInputBuffer(inp){
+  if(inp.buf.length){
+    const keys=new Set(inp.buf.map(v=>v.b));
+    if(
+      (keys.has('S')&&keys.has('P')&&keys.has('K'))||
+      (keys.has('X')&&keys.has('S'))||
+      (keys.has('X')&&keys.has('SYS'))||
+      (inp.h.X&&(inp.pr.S||inp.pr.SYS))||
+      ((inp.h.S||inp.h.SYS)&&inp.pr.X)||
+      (inp.h.P&&inp.h.K&&inp.h.S)
+    )inp.pr.SUP=1;
+    else if((keys.has('P')&&keys.has('K'))||(inp.h.P&&inp.pr.K)||(inp.h.K&&inp.pr.P))inp.pr.T=1;
+    else if((keys.has('S')&&(keys.has('P')||keys.has('K')))||((inp.h.P||inp.h.K)&&inp.pr.S)||(inp.h.S&&(inp.pr.P||inp.pr.K)))inp.pr.X=1;
+    inp.buf=inp.buf.filter(v=>--v.t>0);
+  }
+}
+
+function copyLocalTo1P(){
+  I.l=LOC.l;I.r=LOC.r;I.u=LOC.u;I.d=LOC.d;
+  I.pr=Object.assign({},LOC.pr);
+  I.h=Object.assign({},LOC.h);
+  while(LOC.buf.length)I.buf.push(LOC.buf.shift());
+  LOC.pr={};
+}
+
 function update(){
+  if(NET.active){
+    pumpLocalNetInputs();
+    if(!NET.in1.has(NET.simFr)||!NET.in2.has(NET.simFr)){
+      NET.waitFrames++;
+      return;
+    }
+    NET.waitFrames=0;
+    const b1=NET.in1.get(NET.simFr);
+    const b2=NET.in2.get(NET.simFr);
+    NET.in1.delete(NET.simFr);
+    NET.in2.delete(NET.simFr);
+    applyBitsToInp(b1,NET.prev1,I);
+    applyBitsToInp(b2,NET.prev2,CI);
+    NET.prev1=b1;
+    NET.prev2=b2;
+    NET.simFr++;
+  }else{
+    copyLocalTo1P();
+  }
+
   FR++;
   if(HS>0){HS--;return}
   if(cutT>0){cutT--;return}
   if(ph===2)return;
   if(ph===1){if(--pt<=0)round();return}
 
-  if(I.buf.length){
-    const keys=new Set(I.buf.map(v=>v.b));
-    if(
-      (keys.has('S')&&keys.has('P')&&keys.has('K'))||
-      (keys.has('X')&&keys.has('S'))||
-      (keys.has('X')&&keys.has('SYS'))||
-      (I.h.X&&(I.pr.S||I.pr.SYS))||
-      ((I.h.S||I.h.SYS)&&I.pr.X)||
-      (I.h.P&&I.h.K&&I.h.S)
-    )I.pr.SUP=1;
-    else if((keys.has('P')&&keys.has('K'))||(I.h.P&&I.pr.K)||(I.h.K&&I.pr.P))I.pr.T=1;
-    else if((keys.has('S')&&(keys.has('P')||keys.has('K')))||((I.h.P||I.h.K)&&I.pr.S)||(I.h.S&&(I.pr.P||I.pr.K)))I.pr.X=1;
-    I.buf=I.buf.filter(v=>--v.t>0);
+  processInputBuffer(I);
+  if(NET.active){
+    processInputBuffer(CI);
+  }else{
+    cpu(E,P,CI);
+    if(RV&&((E.s==='dn'&&E.t<=3)||E.s==='bs')){CI[E.f>0?'l':'r']=1;CI.pr.SYS=1}
+    if(TK&&E.thWin>0)CI.pr.T=1;
   }
 
-  cpu(E,P,CI);
-  if(RV&&((E.s==='dn'&&E.t<=3)||E.s==='bs')){CI[E.f>0?'l':'r']=1;CI.pr.SYS=1}
-  if(TK&&E.thWin>0)CI.pr.T=1;
   step(P,E,I);
   step(E,P,CI);
   I.pr={};
+  CI.pr={};
 
   for(const b of fbs){
     b.px=b.x;b.py=b.y;
@@ -1274,7 +1437,6 @@ function body(p){
   }
   X.restore();
 
-  // 判定可視化ON時：手足の先端基準点をハイライト（攻撃判定との高さ一致確認用）
   if(HB_VIS&&s!=='dn'){
     X.save();
     X.fillStyle='#fff';
@@ -1283,7 +1445,6 @@ function body(p){
     X.restore();
   }
 
-  // 投げ成立・掴み中のリングエフェクト
   if(p.thWin>0||s==='thAtk'){
     X.save();
     X.strokeStyle='#50ff8c';X.lineWidth=2;
@@ -1291,7 +1452,6 @@ function body(p){
     X.restore();
   }
 
-  // 予備モーション中の視覚テレグラフ
   if(s==='atk'&&po.isWindup&&p.m){
     const m=p.m,w=po.wup;
     const isKick=m.k.includes('K')||m.k==='BS'||m.k==='XB';
@@ -1330,8 +1490,7 @@ function body(p){
     }
     X.restore();
   }
-
-  if(s==='ch'){
+if(s==='ch'){
     X.fillStyle=p.cf>=30?'rgba(255,230,80,.6)':'rgba(120,200,255,.35)';
     X.beginPath();X.arc(p.x+p.f*14,y-50,10+Math.min(p.cf,30)*.9,0,7);X.fill();
   }
@@ -1410,7 +1569,6 @@ function drawBoxes(p){
   }
 }
 
-/* ===== フレームメーター描画 ===== */
 function drawFrameMeter(){
   if(!FM_VIS)return;
   const bx=12,by=292,bw=W-24,bh=54;
@@ -1420,7 +1578,6 @@ function drawFrameMeter(){
   X.strokeStyle='#3c4257';X.lineWidth=1.2;
   X.strokeRect(bx,by,bw,bh);
 
-  // 上段情報ヘッダ
   X.font='bold 10.5px system-ui';X.textAlign='left';
   X.fillStyle='#eceef6';
   const mvName=FM.lastMove||'待機中';
@@ -1431,7 +1588,6 @@ function drawFrameMeter(){
   }
   X.fillText(`FRAME METER : ${mvName}${specTxt}`,bx+8,by+12);
 
-  // 硬直差表示（右側）
   X.textAlign='right';
   if(FM.adv!==null){
     const sgn=FM.adv>0?'+':FM.adv===0?'±':'';
@@ -1443,7 +1599,6 @@ function drawFrameMeter(){
     X.fillText('計測中...',bx+bw-8,by+12);
   }
 
-  // 凡例
   const leg=[['#38d9a9','発生前'],['#ff4d6d','持続'],['#4dabf7','硬直'],['#ffd43b','被硬直/ダウン'],['#d49eff','無敵']];
   let lx=bx+8;
   X.font='9.5px system-ui';X.textAlign='left';
@@ -1453,7 +1608,6 @@ function drawFrameMeter(){
     lx+=txt.length*9+18;
   }
 
-  // 2段タイムラインバー（上: 1P / 下: 2P）
   const gx=bx+34,gw=bw-42,gy1=by+17,gy2=by+30,ch=10;
   const cw=gw/FM.max;
   X.font='bold 9.5px system-ui';X.textAlign='left';
@@ -1485,7 +1639,6 @@ function draw(){
   X.fillStyle='#0d0e14';X.fillRect(0,0,W,360);
   X.fillStyle='#232738';X.fillRect(0,G,W,360-G);
 
-  // 高さの基準ガイド線（20px刻み）
   X.strokeStyle='rgba(255,255,255,.045)';X.lineWidth=1;
   for(let gy=G-20;gy>=120;gy-=20){
     X.beginPath();X.moveTo(0,gy);X.lineTo(W,gy);X.stroke();
@@ -1512,6 +1665,7 @@ function draw(){
     X.globalAlpha=1;
     X.font='bold 11px system-ui';X.textAlign=l?'left':'right';
     let sub=CHARS[q.cid].name;
+    if(NET.active&&((l&&NET.side===1)||(!l&&NET.side===2)))sub+='(あなた)';
     if(q.cid===2)sub+=' [弾:'+q.stock+'/4]';
     if(q.g>=4)sub+=' ★超必殺OK';
     X.fillStyle=q.g>=4?'#ff9ef2':'#b8bfd8';
@@ -1527,7 +1681,6 @@ function draw(){
     X.fillText('パニッシュ',W/2,185);X.restore();
   }
 
-  // 投げ演出中は投げ側が手前に重なる順で描画
   if(E.s==='thAtk'){body(P);body(E)}
   else{body(E);body(P)}
   drawBoxes(P);drawBoxes(E);
@@ -1608,11 +1761,19 @@ function draw(){
     X.fillText(msg,W/2,165);
   }
 
-  if(P.g>=4&&ph===0&&cutT===0){
-    X.fillStyle='rgba(255,119,233,.34)';X.fillRect(12,58,185,28);
-    X.strokeStyle='#ff77e9';X.lineWidth=2;X.strokeRect(12,58,185,28);
+  const myFighter=(NET.active&&NET.side===2)?E:P;
+  if(myFighter.g>=4&&ph===0&&cutT===0){
+    const bx=(NET.active&&NET.side===2)?W-197:12;
+    X.fillStyle='rgba(255,119,233,.34)';X.fillRect(bx,58,185,28);
+    X.strokeStyle='#ff77e9';X.lineWidth=2;X.strokeRect(bx,58,185,28);
     X.fillStyle='#fff';X.font='bold 12px system-ui';X.textAlign='center';
-    X.fillText('★超必殺 (EX+SP / EX+S / タップ)',104,76);
+    X.fillText('★超必殺 (EX+SP / EX+S / タップ)',bx+92,76);
+  }
+
+  if(NET.active&&NET.waitFrames>12){
+    X.fillStyle='rgba(0,0,0,.65)';X.fillRect(W/2-110,135,220,34);
+    X.fillStyle='#ffd34d';X.font='bold 13px system-ui';X.textAlign='center';
+    X.fillText('通信同期待機中...',W/2,157);
   }
 
   X.fillStyle='#8d94ad';X.font='10px system-ui';X.textAlign='center';
@@ -1621,22 +1782,23 @@ function draw(){
 
 const $=id=>document.getElementById(id),bsupEl=$('bsup');
 $('gear').addEventListener('pointerdown',e=>{e.stopPropagation();$('tb').classList.toggle('open')});
-$('bgm').addEventListener('pointerdown',()=>{P.g=E.g=4});
-$('bhp').addEventListener('pointerdown',()=>{P.hp=E.hp=1e4;T=3600});
-$('brv').addEventListener('pointerdown',e=>{RV^=1;e.target.textContent='切返し:'+(RV?'ON':'OFF')});
-$('btk').addEventListener('pointerdown',e=>{TK^=1;e.target.textContent='投げ抜け:'+(TK?'ON':'OFF')});
-bind('bsup',v=>{if(v)I.pr.SUP=1});
+$('bgm').addEventListener('pointerdown',()=>{if(!NET.active)P.g=E.g=4});
+$('bhp').addEventListener('pointerdown',()=>{if(!NET.active){P.hp=E.hp=1e4;T=3600}});
+$('brv').addEventListener('pointerdown',e=>{if(!NET.active){RV^=1;e.target.textContent='切返し:'+(RV?'ON':'OFF')}});
+$('btk').addEventListener('pointerdown',e=>{if(!NET.active){TK^=1;e.target.textContent='投げ抜け:'+(TK?'ON':'OFF')}});
+bind('bsup',v=>{if(v)LOC.pr.SUP=1});
 addEventListener('pointerdown',()=>{try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume()}catch(e){}});
 const GPm=[[2,'P'],[3,'K'],[5,'S'],[0,'T'],[1,'X'],[7,'SYS']],GPs={};
 function pollPad(){if(GPs.off)return;try{pollPad0()}catch(e){GPs.off=1}}
 function pollPad0(){const l=navigator.getGamepads?navigator.getGamepads():[],g=[...l].find(x=>x&&x.connected);if(!g)return;
  const b=i=>g.buttons[i]&&g.buttons[i].pressed,ax=g.axes[0]||0,ay=g.axes[1]||0;
  if(Math.abs(ax)>.5||Math.abs(ay)>.5||g.buttons.some(x=>x.pressed))GPs.on=1;if(!GPs.on)return;
- I.l=b(14)||ax<-.5?1:0;I.r=b(15)||ax>.5?1:0;I.u=b(12)||ay<-.5?1:0;I.d=b(13)||ay>.5?1:0;
- for(const[i,k]of GPm){const v=b(i)?1:0;I.h[k]=v;if(v&&!GPs[i])pushBtn(k);GPs[i]=v}
- const s=b(4)?1:0;if(s&&!GPs[4])I.pr.SUP=1;GPs[4]=s}
+ LOC.l=b(14)||ax<-.5?1:0;LOC.r=b(15)||ax>.5?1:0;LOC.u=b(12)||ay<-.5?1:0;LOC.d=b(13)||ay>.5?1:0;
+ for(const[i,k]of GPm){const v=b(i)?1:0;LOC.h[k]=v;if(v&&!GPs[i])pushBtn(k);GPs[i]=v}
+ const s=b(4)?1:0;if(s&&!GPs[4])LOC.pr.SUP=1;GPs[4]=s}
 function drawExtra(){
- bsupEl.classList.toggle('rdy',P.g>=4);
+ const myF=(NET.active&&NET.side===2)?E:P;
+ bsupEl.classList.toggle('rdy',myF.g>=4);
  if(ph<2){X.save();X.fillStyle='#fff';X.strokeStyle='#000';X.lineWidth=3;X.font='bold 24px system-ui';X.textAlign='center';const t=Math.max(0,Math.ceil(T/60));X.strokeText(t,W/2,32);X.fillText(t,W/2,32);X.restore()}}
 let last=0,acc=0;
 function loop(t){
@@ -1648,8 +1810,8 @@ function loop(t){
 requestAnimationFrame(t=>{last=t;loop(t)});
 
 function pushBtn(k){
-  I.pr[k]=1;
-  I.buf.push({b:k,t:14});
+  LOC.pr[k]=1;
+  LOC.buf.push({b:k,t:14});
 }
 function bind(id,fn){
   const e=document.getElementById(id);
@@ -1662,25 +1824,24 @@ function bind(id,fn){
     const r=e.getBoundingClientRect(),dx=v.clientX-(r.left+r.width/2),dy=v.clientY-(r.top+r.height/2);
     const L=Math.hypot(dx,dy),m=r.width/2-30,s=L>m?m/L:1,z=r.width*.17;
     k.style.transform='translate('+dx*s+'px,'+dy*s+'px)';
-    const vv=Math.abs(dy)>z&&Math.abs(dy)>Math.abs(dx)*.55;I.l=dx<-z?1:0;I.r=dx>z?1:0;I.u=vv&&dy<0?1:0;I.d=vv&&dy>0?1:0;
+    const vv=Math.abs(dy)>z&&Math.abs(dy)>Math.abs(dx)*.55;LOC.l=dx<-z?1:0;LOC.r=dx>z?1:0;LOC.u=vv&&dy<0?1:0;LOC.d=vv&&dy>0?1:0;
   }
-  function off(){id=null;k.style.transform='';I.l=I.r=I.u=I.d=0}
+  function off(){id=null;k.style.transform='';LOC.l=LOC.r=LOC.u=LOC.d=0}
   e.addEventListener('pointerdown',v=>{v.preventDefault();id=v.pointerId;e.setPointerCapture(id);mv(v)});
   e.addEventListener('pointermove',v=>{if(v.pointerId===id)mv(v)});
   for(const t of['pointerup','pointercancel'])e.addEventListener(t,v=>{if(v.pointerId===id)off()});
 })();
+bind('bp',v=>{LOC.h.P=v;if(v)pushBtn('P')});
+bind('bk',v=>{LOC.h.K=v;if(v)pushBtn('K')});
+bind('bs',v=>{LOC.h.S=v;if(v)pushBtn('S')});
+bind('bt',v=>{LOC.h.T=v;if(v)pushBtn('T')});
+bind('be',v=>{LOC.h.X=v;if(v)pushBtn('X')});
+bind('bsys',v=>{LOC.h.SYS=v;if(v)pushBtn('SYS')});
 
-bind('bp',v=>{I.h.P=v;if(v)pushBtn('P')});
-bind('bk',v=>{I.h.K=v;if(v)pushBtn('K')});
-bind('bs',v=>{I.h.S=v;if(v)pushBtn('S')});
-bind('bt',v=>{I.h.T=v;if(v)pushBtn('T')});
-bind('be',v=>{I.h.X=v;if(v)pushBtn('X')});
-bind('bsys',v=>{I.h.SYS=v;if(v)pushBtn('SYS')});
-
-document.getElementById('bc1').addEventListener('pointerdown',()=>{cSel[0]=(cSel[0]+1)%3;setChars()});
-document.getElementById('bc2').addEventListener('pointerdown',()=>{cSel[1]=(cSel[1]+1)%3;setChars()});
+document.getElementById('bc1').addEventListener('pointerdown',()=>{if(!NET.active){cSel[0]=(cSel[0]+1)%3;NET.myCid=cSel[0];syncLobbyCharBtns();setChars()}});
+document.getElementById('bc2').addEventListener('pointerdown',()=>{if(!NET.active){cSel[1]=(cSel[1]+1)%3;setChars()}});
 const bm=document.getElementById('bm');
-bm.addEventListener('pointerdown',()=>{DM=(DM+1)%4;bm.textContent=['相手:停止','相手:ガード','相手:技を振る','相手:CPU'][DM]});
+bm.addEventListener('pointerdown',()=>{if(!NET.active){DM=(DM+1)%4;bm.textContent=['相手:停止','相手:ガード','相手:技を振る','相手:CPU'][DM]}});
 const bhb=document.getElementById('bhb');
 bhb.addEventListener('pointerdown',()=>{HB_VIS^=1;bhb.textContent='判定:'+(HB_VIS?'ON':'OFF')});
 const bfm=document.getElementById('bfm');
@@ -1689,7 +1850,8 @@ const bsnd=document.getElementById('bsnd');
 bsnd.addEventListener('pointerdown',()=>{SND^=1;bsnd.textContent='音:'+(SND?'ON':'OFF')});
 
 function renderMoveList(){
-  const C0=CHARS[cSel[0]],M=C0.M;
+  const idx=(NET.active&&NET.side===2)?1:0;
+  const C0=CHARS[cSel[idx]],M=C0.M;
   document.getElementById('mlt').textContent=C0.name+'（'+C0.role+'）';
   const rows=[
     ['N（正面）',M.NP.n+(C0.chKey==='NP'?' / 【タメ】'+M[C0.chTo].n:''),M.NK.n,M.NS.n+(C0.chKey==='NS'?' / 【タメ】'+M[C0.chTo].n:'')],
@@ -1709,32 +1871,196 @@ function renderMoveList(){
   html+='<tr><td>バックステップ</td><td>← ←</td><td>1〜4F完全無敵（打撃・弾・投げ）</td></tr>';
   html+='<tr><td>通常投げ / 抜け</td><td>P + K（or 投げ）</td><td>1000ダメージ／10F以内入力で投げ抜け</td></tr>';
   html+='<tr><td>めくり / 背後ガード</td><td>弾・攻撃の進行方向へ入力</td><td>ブーメラン等が背後から来る場合は前(→)入力でガード</td></tr>';
-  html+='<tr><td>超必殺技</td><td>EX+SP / EX+S / SP+P+K (4本)</td><td>'+C0.superName+'（画面左上タップでも発動）</td></tr></table>';
+  html+='<tr><td>超必殺技</td><td>EX+SP / EX+S / SP+P+K (4本)</td><td>'+C0.superName+'（ゲージ欄タップでも発動）</td></tr></table>';
   document.getElementById('mlb').innerHTML=html;
 }
 document.getElementById('bml').addEventListener('pointerdown',()=>{renderMoveList();document.getElementById('ml').classList.add('open')});
 document.getElementById('mlc').addEventListener('pointerdown',()=>document.getElementById('ml').classList.remove('open'));
 renderMoveList();
 
+/* ===== オンラインロビーUI＆通信イベント ===== */
+function openOnlineModal(){
+  $('tb').classList.remove('open');
+  syncLobbyCharBtns();
+  $('onl').classList.add('open');
+}
+$('bonlBtn').addEventListener('pointerdown',e=>{e.stopPropagation();openOnlineModal()});
+$('bonlMenu').addEventListener('pointerdown',()=>openOnlineModal());
+$('onlc').addEventListener('pointerdown',()=>$('onl').classList.remove('open'));
+
+function syncLobbyCharBtns(){
+  document.querySelectorAll('#oCharRow .obtn').forEach(btn=>{
+    btn.classList.toggle('sel',Number(btn.dataset.cid)===NET.myCid);
+  });
+}
+document.querySelectorAll('#oCharRow .obtn').forEach(btn=>{
+  btn.addEventListener('pointerdown',()=>{
+    NET.myCid=Number(btn.dataset.cid);
+    syncLobbyCharBtns();
+    if(!NET.active){cSel[0]=NET.myCid;setChars()}
+  });
+});
+document.querySelectorAll('[data-dly]').forEach(btn=>{
+  btn.addEventListener('pointerdown',()=>{
+    NET.delay=Number(btn.dataset.dly);
+    document.querySelectorAll('[data-dly]').forEach(b=>b.classList.toggle('sel',b===btn));
+  });
+});
+
+function bindConnEvents(conn,isHost){
+  NET.conn=conn;
+  conn.on('open',()=>{
+    if(!isHost){
+      updateNetUI('接続成功！対戦開始を同期中...');
+      sendNet({t:'hello',cid:NET.myCid,dly:NET.delay});
+    }
+  });
+  conn.on('data',msg=>{
+    if(!msg||typeof msg!=='object')return;
+    if(msg.t==='hello'&&isHost){
+      const dly=Math.max(2,Math.min(6,Math.max(NET.delay,msg.dly||3)));
+      const cid1=NET.myCid,cid2=Number(msg.cid)||0;
+      sendNet({t:'start',cid1,cid2,dly});
+      startNetMatch(1,cid1,cid2,dly);
+    }else if(msg.t==='start'&&!isHost){
+      startNetMatch(2,msg.cid1,msg.cid2,msg.dly);
+    }else if(msg.t==='in'&&NET.active&&Array.isArray(msg.list)){
+      const targetMap=NET.side===1?NET.in2:NET.in1;
+      for(const pair of msg.list){
+        const f=pair[0],b=pair[1];
+        if(f>=NET.simFr&&!targetMap.has(f))targetMap.set(f,b);
+      }
+    }else if(msg.t==='rematch'&&NET.active){
+      NET.rematchPeer=1;
+      if(isHost){
+        if(NET.rematchSelf){
+          const dly=NET.delay,cid1=NET.myCid,cid2=cSel[1];
+          sendNet({t:'start',cid1,cid2,dly});
+          startNetMatch(1,cid1,cid2,dly);
+        }else{
+          pop(E,'相手が再戦を希望！');
+          updateNetUI('相手が再戦を希望しています（「もう1戦」で開始）');
+        }
+      }else{
+        pop(P,'相手が再戦を希望！');
+        updateNetUI('相手が再戦を希望しています（「もう1戦」で開始）');
+      }
+    }
+  });
+  conn.on('close',()=>stopNetMatch('相手との通信が切断されました'));
+  conn.on('error',()=>stopNetMatch('通信エラーが発生しました'));
+}
+
+function createHostRoom(retryCount){
+  if(typeof Peer==='undefined'){
+    updateNetUI('通信ライブラリの読み込みに失敗しました。ネット接続を確認してください。');
+    return;
+  }
+  stopNetMatch();
+  const code=String(1000+Math.floor(Math.random()*9000));
+  const peerId='fg2d-jp-v1-'+code;
+  NET.room=code;
+  updateNetUI('部屋を作成中...');
+  const peer=new Peer(peerId);
+  NET.peer=peer;
+  peer.on('open',()=>{
+    $('oRoomCode').textContent=code;
+    $('oRoomCode').style.display='inline-block';
+    $('oCopyBtn').style.display='inline-block';
+    $('oDiscBtn').style.display='inline-block';
+    updateNetUI('待機中... 合言葉【 '+code+' 】を相手に入力してもらってください');
+  });
+  peer.on('connection',conn=>{
+    if(NET.conn){try{conn.close()}catch(e){}return}
+    bindConnEvents(conn,true);
+  });
+  peer.on('error',err=>{
+    if(err&&err.type==='unavailable-id'&&(retryCount||0)<5){
+      createHostRoom((retryCount||0)+1);
+    }else{
+      stopNetMatch('部屋作成エラー: '+(err.type||'接続失敗'));
+    }
+  });
+}
+
+$('oHostBtn').addEventListener('pointerdown',()=>createHostRoom(0));
+$('oCopyBtn').addEventListener('pointerdown',()=>{
+  if(navigator.clipboard&&NET.room){
+    navigator.clipboard.writeText(NET.room).then(()=>{
+      $('oCopyBtn').textContent='コピー済!';
+      setTimeout(()=>{$('oCopyBtn').textContent='コピー'},1500);
+    }).catch(()=>{});
+  }
+});
+
+$('oJoinBtn').addEventListener('pointerdown',()=>{
+  if(typeof Peer==='undefined'){
+    updateNetUI('通信ライブラリの読み込みに失敗しました。');
+    return;
+  }
+  const code=($('oJoinInp').value||'').replace(/\D/g,'').slice(0,4);
+  if(code.length!==4){
+    updateNetUI('4桁の数字を入力してください');
+    return;
+  }
+  stopNetMatch();
+  updateNetUI('合言葉【 '+code+' 】の部屋に接続中...');
+  $('oDiscBtn').style.display='inline-block';
+  const peer=new Peer();
+  NET.peer=peer;
+  peer.on('open',()=>{
+    const conn=peer.connect('fg2d-jp-v1-'+code,{reliable:true});
+    bindConnEvents(conn,false);
+  });
+  peer.on('error',err=>{
+    stopNetMatch('接続失敗（合言葉が違うか部屋が閉じています）');
+  });
+});
+
+function requestRematch(){
+  if(!NET.active)return;
+  NET.rematchSelf=1;
+  sendNet({t:'rematch'});
+  if(NET.side===1&&NET.rematchPeer){
+    const dly=NET.delay,cid1=NET.myCid,cid2=cSel[1];
+    sendNet({t:'start',cid1,cid2,dly});
+    startNetMatch(1,cid1,cid2,dly);
+  }else{
+    pop(NET.side===1?P:E,'再戦リクエスト送信');
+    updateNetUI('相手の再戦応答を待っています...');
+  }
+}
+
+$('oRematchBtn').addEventListener('pointerdown',()=>requestRematch());
+$('oDiscBtn').addEventListener('pointerdown',()=>stopNetMatch('切断しました（オフラインモード）'));
+
 const KM={ArrowLeft:'l',a:'l',ArrowRight:'r',d:'r',ArrowUp:'u',w:'u',ArrowDown:'d',s:'d'};
 const KB={j:'P',z:'P',k:'K',x:'K',l:'S',c:'S',u:'T',v:'T',i:'X',b:'X',o:'SYS',n:'SYS',Enter:'SUP',' ':'SUP'};
 addEventListener('keydown',e=>{
-  if(KM[e.key])I[KM[e.key]]=1;
+  if(document.activeElement&&document.activeElement.tagName==='INPUT')return;
+  if(KM[e.key])LOC[KM[e.key]]=1;
   else if(KB[e.key]&&!e.repeat){
     const k=KB[e.key];
-    I.h[k]=1;
-    if(k==='SUP')I.pr.SUP=1;
+    LOC.h[k]=1;
+    if(k==='SUP')LOC.pr.SUP=1;
     else pushBtn(k);
   }
 });
 addEventListener('keyup',e=>{
-  if(KM[e.key])I[KM[e.key]]=0;
-  else if(KB[e.key])I.h[KB[e.key]]=0;
+  if(KM[e.key])LOC[KM[e.key]]=0;
+  else if(KB[e.key])LOC.h[KB[e.key]]=0;
 });
 
 C.addEventListener('pointerdown',e=>{
-  if(ph===2){rw=[0,0];P.g=E.g=0;round();return}
+  if(ph===2){
+    if(NET.active){requestRematch();return}
+    rw=[0,0];P.g=E.g=0;round();return;
+  }
   const r=C.getBoundingClientRect(),cx=(e.clientX-r.left)/r.width*W,cy=(e.clientY-r.top)/r.height*360;
-  if(P.g>=4&&cx<=210&&cy<=95)I.pr.SUP=1;
+  if(NET.active&&NET.side===2){
+    if(E.g>=4&&cx>=W-210&&cy<=95)LOC.pr.SUP=1;
+  }else{
+    if(P.g>=4&&cx<=210&&cy<=95)LOC.pr.SUP=1;
+  }
 });
 </script></body></html>
