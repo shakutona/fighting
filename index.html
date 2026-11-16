@@ -246,7 +246,7 @@ canvas{order:1;flex:1;min-width:0;height:100%}
   </div>
 </div>
 <script>
-const C=document.getElementById('c'),X=C.getContext('2d'),DPR=Math.min(3,Math.max(2,Math.ceil(devicePixelRatio||2)));C.width=640*DPR;C.height=360*DPR;X.scale(DPR,DPR);
+const C=document.getElementById('c'),X=C.getContext('2d'),DPR=2;C.width=640*DPR;C.height=360*DPR;X.scale(DPR,DPR);
 const W=640,G=282,CW=40;
 const STEP_MS=19.6;      // 全体のゲームスピードを約15%減速（16.67ms -> 19.6ms）
 const SUP_CD_MAX=900;    // 超必殺技の再使用クールダウン（約17.6秒）
@@ -468,7 +468,9 @@ const NET={
   in1:new Map(),in2:new Map(),
   prev1:0,prev2:0,
   rematchSelf:0,rematchPeer:0,
-  waitFrames:0
+  waitFrames:0,
+  connIn:null,hist:new Map(),peerAck:-1,mid:0,stalled:0,
+  rtt:0,route:'',pingTimer:0
 };
 
 function packLocalBits(inp){
@@ -513,25 +515,104 @@ function sendNet(obj){
   }
 }
 
+// 入力専用チャンネル（順序保証なし）。未接続なら制御チャンネルにフォールバック
+function sendIn(obj){
+  const c=(NET.connIn&&NET.connIn.open)?NET.connIn:NET.conn;
+  if(c&&c.open){
+    try{c.send(obj)}catch(e){}
+  }
+}
+
+function newMid(){return 1+Math.floor(Math.random()*30000)}
+
+function onInMsg(msg){
+  if(msg.t==='ping'){sendIn({t:'pong',ts:msg.ts});return}
+  if(msg.t==='pong'){
+    const r=performance.now()-msg.ts;
+    if(r>=0&&r<5000)NET.rtt=NET.rtt?NET.rtt*.7+r*.3:r;
+    return;
+  }
+  if(msg.t==='in'&&NET.active&&(msg.m|0)===(NET.mid|0)&&Array.isArray(msg.b)){
+    const targetMap=NET.side===1?NET.in2:NET.in1;
+    const s0=msg.s|0;
+    for(let i=0;i<msg.b.length;i++){
+      const f=s0+i;
+      if(f>=NET.simFr&&!targetMap.has(f))targetMap.set(f,msg.b[i]|0);
+    }
+    if(typeof msg.a==='number'&&msg.a>NET.peerAck)NET.peerAck=msg.a;
+  }
+}
+
+function bindInConn(c){
+  NET.connIn=c;
+  c.on('data',msg=>{if(msg&&typeof msg==='object')onInMsg(msg)});
+  c.on('close',()=>{if(NET.connIn===c)NET.connIn=null});
+  c.on('error',()=>{});
+}
+
+function startNetPing(){
+  clearInterval(NET.pingTimer);
+  NET.pingTimer=setInterval(()=>sendIn({t:'ping',ts:performance.now()}),1000);
+}
+
+// 経路判定（P2P直結 / TURN中継）
+function detectRoute(){
+  try{
+    const pc=NET.conn&&NET.conn.peerConnection;
+    if(!pc||!pc.getStats)return;
+    pc.getStats().then(stats=>{
+      let pair=null;
+      stats.forEach(r=>{
+        if(r.type==='transport'&&r.selectedCandidatePairId&&stats.get(r.selectedCandidatePairId))pair=stats.get(r.selectedCandidatePairId);
+      });
+      if(!pair){
+        stats.forEach(r=>{if(r.type==='candidate-pair'&&r.nominated&&r.state==='succeeded')pair=r});
+      }
+      if(!pair)return;
+      const l=stats.get(pair.localCandidateId),r=stats.get(pair.remoteCandidateId);
+      const relay=(l&&l.candidateType==='relay')||(r&&r.candidateType==='relay');
+      NET.route=relay?'TURN中継':'P2P直結';
+    }).catch(()=>{});
+  }catch(e){}
+}
+
 function pumpLocalNetInputs(){
   if(!NET.active)return;
   const target=NET.simFr+NET.delay;
   const myMap=NET.side===1?NET.in1:NET.in2;
+  const peerMap=NET.side===1?NET.in2:NET.in1;
   const bits=packLocalBits(LOC);
   while(NET.locSentUpTo<target){
     NET.locSentUpTo++;
     myMap.set(NET.locSentUpTo,bits);
+    NET.hist.set(NET.locSentUpTo,bits);
   }
   LOC.pr.SUP=0;
-  const list=[];
-  for(let f=Math.max(0,NET.locSentUpTo-5);f<=NET.locSentUpTo;f++){
-    if(myMap.has(f))list.push([f,myMap.get(f)]);
+  // 相手から確実に受け取れている最後のフレーム（ACK）
+  let a=NET.simFr;
+  while(peerMap.has(a))a++;
+  a--;
+  // 相手が受信済みの分は履歴から破棄
+  for(const k of NET.hist.keys()){
+    if(k<=NET.peerAck)NET.hist.delete(k);else break;
   }
-  sendNet({t:'in',list});
+  // 相手のACKの次から最新までを送る（欠損しても次回自動で再送される）
+  const from=Math.max(NET.delay,NET.peerAck+1,NET.locSentUpTo-63);
+  const b=[];
+  for(let f=from;f<=NET.locSentUpTo;f++){
+    const v=NET.hist.get(f);
+    if(v===undefined)break;
+    b.push(v);
+  }
+  if(b.length)sendIn({t:'in',m:NET.mid,s:from,b,a});
 }
 
-function startNetMatch(side,cid1,cid2,delay){
+function startNetMatch(side,cid1,cid2,delay,mid){
   NET.active=1;
+  NET.mid=mid|0;
+  NET.hist.clear();
+  NET.peerAck=-1;
+  NET.stalled=0;
   NET.side=side;
   NET.delay=delay;
   NET.simFr=0;
@@ -565,6 +646,8 @@ function startNetMatch(side,cid1,cid2,delay){
 }
 
 function stopNetMatch(reason){
+  clearInterval(NET.pingTimer);NET.pingTimer=0;NET.rtt=0;NET.route='';
+  if(NET.connIn){try{NET.connIn.close()}catch(e){}NET.connIn=null}
   if(NET.conn){try{NET.conn.close()}catch(e){}NET.conn=null}
   if(NET.peer){try{NET.peer.destroy()}catch(e){}NET.peer=null}
   NET.active=0;
@@ -1689,6 +1772,7 @@ function update(){
     pumpLocalNetInputs();
     if(!NET.in1.has(NET.simFr)||!NET.in2.has(NET.simFr)){
       NET.waitFrames++;
+      NET.stalled=1;
       return;
     }
     NET.waitFrames=0;
@@ -2359,6 +2443,15 @@ function draw(){
     X.fillText('★超必殺 (EX+SP / EX+S / タップ)',bx+92,76);
   }
 
+  if(NET.active){
+    const need=NET.rtt?Math.ceil(NET.rtt/2/STEP_MS)+1:0;
+    X.save();X.font='9px system-ui';X.textAlign='right';
+    X.fillStyle='rgba(236,238,246,.7)';
+    X.fillText((NET.route?NET.route+' ':'')+'RTT '+Math.round(NET.rtt)+'ms / 遅延'+NET.delay+'F',W-6,346);
+    if(need>NET.delay){X.fillStyle='#ffd34d';X.fillText('推奨遅延 '+need+'F以上',W-6,356)}
+    X.restore();
+  }
+
   if(NET.active&&NET.waitFrames>12){
     X.fillStyle='rgba(0,0,0,.65)';X.fillRect(W/2-110,135,220,34);
     X.fillStyle='#ffd34d';X.font='bold 13px system-ui';X.textAlign='center';
@@ -2472,7 +2565,11 @@ function drawExtra(){
 let last=0,acc=0;
 function loop(t){
   acc+=Math.min(60,t-last);last=t;
-  while(acc>=STEP_MS){update();acc-=STEP_MS}
+  while(acc>=STEP_MS){
+    NET.stalled=0;update();
+    if(NET.stalled){acc=Math.min(acc,STEP_MS*3);break}
+    acc-=STEP_MS;
+  }
   pollPad();X.save();if(SHK>0){X.translate((Math.random()-.5)*SHK*.9,(Math.random()-.5)*SHK*.9);SHK--}draw();X.restore();drawExtra();
   requestAnimationFrame(loop);
 }
@@ -2675,6 +2772,8 @@ document.querySelectorAll('[data-dly]').forEach(btn=>{
 function bindConnEvents(conn,isHost){
   NET.conn=conn;
   conn.on('open',()=>{
+    startNetPing();
+    setTimeout(detectRoute,2500);setTimeout(detectRoute,9000);
     if(!isHost){
       updateModeUI('接続成功！対戦開始を同期中...');
       sendNet({t:'hello',cid:NET.myCid,dly:NET.delay});
@@ -2685,23 +2784,19 @@ function bindConnEvents(conn,isHost){
     if(msg.t==='hello'&&isHost){
       const dly=Math.max(2,Math.min(6,Math.max(NET.delay,msg.dly||3)));
       const cid1=NET.myCid,cid2=Number(msg.cid)||0;
-      sendNet({t:'start',cid1,cid2,dly});
-      startNetMatch(1,cid1,cid2,dly);
+      const mid=newMid();sendNet({t:'start',cid1,cid2,dly,mid});
+      startNetMatch(1,cid1,cid2,dly,mid);
     }else if(msg.t==='start'&&!isHost){
-      startNetMatch(2,msg.cid1,msg.cid2,msg.dly);
-    }else if(msg.t==='in'&&NET.active&&Array.isArray(msg.list)){
-      const targetMap=NET.side===1?NET.in2:NET.in1;
-      for(const pair of msg.list){
-        const f=pair[0],b=pair[1];
-        if(f>=NET.simFr&&!targetMap.has(f))targetMap.set(f,b);
-      }
+      startNetMatch(2,msg.cid1,msg.cid2,msg.dly,msg.mid);
+    }else if(msg.t==='in'||msg.t==='ping'||msg.t==='pong'){
+      onInMsg(msg);
     }else if(msg.t==='rematch'&&NET.active){
       NET.rematchPeer=1;
       if(isHost){
         if(NET.rematchSelf){
           const dly=NET.delay,cid1=NET.myCid,cid2=cSel[1];
-          sendNet({t:'start',cid1,cid2,dly});
-          startNetMatch(1,cid1,cid2,dly);
+          const mid=newMid();sendNet({t:'start',cid1,cid2,dly,mid});
+          startNetMatch(1,cid1,cid2,dly,mid);
         }else{
           pop(E,'相手が再戦を希望！');
           updateModeUI('相手が再戦を希望しています（「もう1戦」で開始）');
@@ -2736,6 +2831,7 @@ function createHostRoom(retryCount){
     updateModeUI('待機中... 合言葉【 '+code+' 】を相手に入力してもらってください');
   });
   peer.on('connection',conn=>{
+    if(conn.metadata&&conn.metadata.kind==='in'){bindInConn(conn);return}
     if(NET.conn){try{conn.close()}catch(e){}return}
     bindConnEvents(conn,true);
   });
@@ -2776,6 +2872,8 @@ $('oJoinBtn').addEventListener('pointerdown',()=>{
   peer.on('open',()=>{
     const conn=peer.connect('fg2d-jp-v1-'+code,{reliable:true});
     bindConnEvents(conn,false);
+    const cin=peer.connect('fg2d-jp-v1-'+code,{reliable:false,serialization:'json',metadata:{kind:'in'}});
+    bindInConn(cin);
   });
   peer.on('error',err=>{
     stopNetMatch('接続失敗（合言葉が違うか部屋が閉じています）');
@@ -2788,8 +2886,8 @@ function requestRematch(){
   sendNet({t:'rematch'});
   if(NET.side===1&&NET.rematchPeer){
     const dly=NET.delay,cid1=NET.myCid,cid2=cSel[1];
-    sendNet({t:'start',cid1,cid2,dly});
-    startNetMatch(1,cid1,cid2,dly);
+    const mid=newMid();sendNet({t:'start',cid1,cid2,dly,mid});
+    startNetMatch(1,cid1,cid2,dly,mid);
   }else{
     pop(NET.side===1?P:E,'再戦リクエスト送信');
     updateModeUI('相手の再戦応答を待っています...');
