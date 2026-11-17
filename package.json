@@ -1,0 +1,6 @@
+{
+  "name": "fighting-game",
+  "scripts": {
+    "start": "node ws_server_2_2.js"
+  }
+}
