@@ -562,8 +562,8 @@
       <div style="margin-top:8px" class="orow" id="oDlyRow">
         <span style="font-size:12px;color:#b8bfd8">入力遅延：</span>
         <button class="obtn" data-dly="0">0F(Type-C直結)</button>
-        <button class="obtn sel" data-dly="1">1F(標準)</button>
-        <button class="obtn" data-dly="2">2F(遠距離)</button>
+        <button class="obtn" data-dly="1">1F(標準)</button>
+        <button class="obtn sel" data-dly="2">2F(遠距離)</button>
       </div>
     </div>
 
@@ -817,7 +817,7 @@
        ロールバックネットコード（GGPOスタイル）管理＆スナップショット
        ========================================================================= */
     const NET = {
-      peer: null, conn: null, active: 0, mode: '', side: 0, myCid: 0, delay: 1,
+      peer: null, conn: null, active: 0, mode: '', side: 0, myCid: 0, delay: 2,
       simFr: 0, syncFr: 0, locSentUpTo: -1,
       in1: new Map(), in2: new Map(),
       predMap: new Map(), snaps: new Map(),
@@ -3598,7 +3598,11 @@
     }
 
     function startNetQuickMatch() {
-      const customWs = (netWsUrlInp.value || '').trim();
+      let customWs = (netWsUrlInp.value || '').trim();
+      if (!customWs && (location.protocol === 'http:' || location.protocol === 'https:') && !location.hostname.endsWith('github.io')) {
+        const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        customWs = `${wsProto}//${location.host}`;
+      }
       if (customWs) {
         connectViaWsQuick(customWs, false);
         return;
@@ -3649,12 +3653,11 @@
     }
 
     function startCableQuickMatch() {
-      const locHost = location.hostname || 'localhost';
-      const locPort = location.port || '8080';
+      const locHost = location.host || 'localhost:8080';
       const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const defaultCableUrl = (location.protocol === 'file:')
         ? 'ws://localhost:8080'
-        : `${wsProto}//${locHost}:${locPort}`;
+        : `${wsProto}//${locHost}`;
       connectViaWsQuick(defaultCableUrl, true);
     }
 
