@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <title>2D対戦格闘ゲーム トレモ＆オンライン対応版</title>
+  <title>2D対戦格闘ゲーム ロールバック対応版</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     :root {
@@ -216,7 +216,7 @@
     #trn {
       position: fixed;
       inset: 0;
-      background: rgba(10, 12, 18, .95);
+      background: rgba(10, 12, 18, .96);
       color: #eceef6;
       display: none;
       flex-direction: column;
@@ -298,6 +298,14 @@
       touch-action: manipulation
     }
 
+    .obtn.big {
+      width: 100%;
+      padding: 13px 12px;
+      font-size: 15px;
+      border-radius: 12px;
+      text-align: center
+    }
+
     .obtn.sel {
       border-color: #ffd34d;
       color: #ffd34d;
@@ -328,23 +336,12 @@
       border: 2px solid #5a617a;
       border-radius: 10px;
       padding: 8px 10px;
-      font: bold 18px monospace;
-      width: 110px;
-      text-align: center;
-      letter-spacing: 3px;
+      font: 13px monospace;
+      width: 100%;
+      box-sizing: border-box;
       touch-action: manipulation;
       user-select: text;
       -webkit-user-select: text
-    }
-
-    .codebox {
-      font: bold 24px monospace;
-      letter-spacing: 4px;
-      color: #ffd34d;
-      background: #0d0e14;
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid #5a617a
     }
 
     #bsup {
@@ -412,7 +409,7 @@
   <canvas id="c" width="1280" height="720"></canvas>
   <div id="topBar">
     <div class="tgrp">
-      <button class="tbtn" id="bonlBtn">🌐 オンライン</button>
+      <button class="tbtn" id="bonlBtn">⚡ 対戦スタート</button>
       <button class="tbtn" id="bResetBtn">↺ リセット</button>
       <button class="tbtn" id="bRecBtn">● 録画</button>
     </div>
@@ -421,7 +418,7 @@
     </div>
   </div>
   <div id="tb">
-    <button id="bonlMenu">🌐 オンライン設定</button>
+    <button id="bonlMenu">🔌 対戦メニュー</button>
     <button id="bhb">判定:ON</button>
     <button id="bfm">Fメーター:ON</button>
     <button id="bml">技表</button>
@@ -450,7 +447,7 @@
       <div class="orow" style="margin-bottom:6px">
         <button class="obtn pri" id="tDoReset">↺ 位置・状態リセット</button>
         <button class="obtn" id="tOpenMove">📖 技表</button>
-        <button class="obtn" id="tOpenOnline">🌐 オンライン対戦</button>
+        <button class="obtn grn" id="tOpenOnline">⚡ 対戦モード</button>
       </div>
       <div class="olbl">1P（自分）キャラ</div>
       <div class="orow" id="tC1Row">
@@ -551,42 +548,56 @@
     <div id="mlb"></div>
   </div>
 
-  <!-- オンライン対戦モーダル -->
+  <!-- ワンタップ対戦モードモーダル -->
   <div id="onl">
-    <h2><span>🌐 オンライン対戦（合言葉マッチ）</span><button id="onlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
+    <h2><span>⚡ ワンタップ対戦（番号・コピペ不要）</span><button id="onlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
+
     <div class="ocard">
-      <h3>1. 自分の使用キャラ</h3>
+      <h3>1. 自分のキャラ・入力遅延（ロールバック方式）</h3>
       <div class="orow" id="oCharRow">
         <button class="obtn sel" data-cid="0">弾キャラ</button>
         <button class="obtn" data-cid="1">肉弾キャラ</button>
         <button class="obtn" data-cid="2">特殊キャラ</button>
       </div>
-      <div style="margin-top:10px" class="orow">
-        <span style="font-size:12px;color:#b8bfd8">入力遅延（ラグ吸収）：</span>
-        <button class="obtn" data-dly="2">2F</button>
-        <button class="obtn sel" data-dly="3">3F(標準)</button>
-        <button class="obtn" data-dly="4">4F</button>
-        <button class="obtn" data-dly="5">5F</button>
+      <div style="margin-top:8px" class="orow" id="oDlyRow">
+        <span style="font-size:12px;color:#b8bfd8">入力遅延：</span>
+        <button class="obtn" data-dly="0">0F(Type-C直結)</button>
+        <button class="obtn sel" data-dly="1">1F(標準)</button>
+        <button class="obtn" data-dly="2">2F(遠距離)</button>
       </div>
     </div>
-    <div class="ocard" id="oSetupCard">
-      <h3>2. 対戦方法を選ぶ</h3>
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;color:#b8bfd8;margin-bottom:6px">【部屋を作る（1P側）】合言葉を発行して相手を待ちます</div>
-        <div class="orow">
-          <button class="obtn pri" id="oHostBtn">部屋を作る</button>
-          <span class="codebox" id="oRoomCode" style="display:none">----</span>
-          <button class="obtn" id="oCopyBtn" style="display:none">コピー</button>
-        </div>
+
+    <div class="ocard" id="oQuickCards">
+      <h3>2. 対戦方法を選んで即スタート</h3>
+
+      <button class="obtn pri big" id="btnNetQuick" style="margin-bottom:8px">
+        🌐 ネット対戦（離れている友達と即マッチ）
+      </button>
+      <div style="font-size:11px;color:#b8bfd8;margin-bottom:12px;line-height:1.45">
+        お互いがこのボタンを押すだけで自動マッチングします（Type-Cケーブル＋テザリング時にも最短ルートで自動直結）。
       </div>
-      <div style="border-top:1px solid #33384d;padding-top:10px">
-        <div style="font-size:12px;color:#b8bfd8;margin-bottom:6px">【部屋に入る（2P側）】相手から聞いた4桁の数字を入力</div>
-        <div class="orow">
-          <input class="oinp" id="oJoinInp" type="tel" maxlength="4" placeholder="0000" inputmode="numeric">
-          <button class="obtn pri" id="oJoinBtn">参加する</button>
-        </div>
+
+      <button class="obtn grn big" id="btnCableQuick" style="margin-bottom:8px">
+        🔌 オフラインType-C直結（ws_server_2.js経由）
+      </button>
+      <div style="font-size:11px;color:#b8bfd8;margin-bottom:10px;line-height:1.45">
+        ネット完全オフラインで遊ぶ場合：<code>ws_server_2.js</code> を起動し、もう1台から <code>http://ホスト名.local:8080/?auto=local</code> を開くと自動接続します。
       </div>
+
+      <details style="margin-top:6px;border-top:1px solid #33384d;padding-top:8px">
+        <summary style="font-size:11.5px;color:#8d94ad;cursor:pointer">サーバーURL設定・1台2P対戦（詳細）</summary>
+        <div style="margin-top:8px">
+          <div class="olbl" style="margin-bottom:4px">ネット対戦用 WebSocketサーバーURL（Render等を使う場合のみ入力・空欄でも自動マッチ可）</div>
+          <input class="oinp" id="netWsUrlInp" type="text" placeholder="wss://あなたのサーバー.onrender.com">
+          <div class="orow" style="margin-top:10px">
+            <button class="obtn" id="l2pStartBtn">🎮 1台の端末で2P対戦（パッド2個）</button>
+            <button class="obtn dan" id="l2pStopBtn" style="display:none">1台2P対戦を終了</button>
+          </div>
+          <div id="l2pPadStatus" style="font-size:11px;color:#6fe3ff;margin-top:4px"></div>
+        </div>
+      </details>
     </div>
+
     <div class="ocard">
       <h3>通信ステータス</h3>
       <div id="oStat" style="font-size:13px;color:#ffd34d;line-height:1.5">未接続（現在はトレーニングモードです）</div>
@@ -596,23 +607,30 @@
       </div>
     </div>
   </div>
+
   <script>
+    // 外部WebSocketサーバー（Render等）のURLを固定したい場合はここに記述（例: 'wss://my-game.onrender.com'）
+    const DEFAULT_NET_WS_URL = '';
+    const QUICK_LOBBY_PEER_ID = 'fgt2d-quick-match-lobby-v1';
+
     const C = document.getElementById('c'), X = C.getContext('2d'), DPR = 2; C.width = 640 * DPR; C.height = 360 * DPR; X.scale(DPR, DPR);
     const W = 640, G = 282, CW = 40;
 
-    // ゲームスピード・システム定数
-    const STEP_MS = 19.6;   // 1フレームの長さ(ms)
-    const SUP_CD_MAX = 900; // 超必殺技のクールダウン(フレーム)
+    const STEP_MS = 19.6;
+    const SUP_CD_MAX = 900;
+    const MAX_ROLLBACK_FRAMES = 12;
+
+    let IS_ROLLBACK = 0;
 
     let AC = null, SND = 1, HB_VIS = 1, FM_VIS = 1;
     function se(type) {
-      if (!SND) return;
+      if (!SND || IS_ROLLBACK) return;
       try {
         if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
         if (AC.state === 'suspended') AC.resume();
         const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
         o.connect(g); g.connect(AC.destination);
-        if (type === 'hit') { o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(55, t + .11); gs.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.001, t + .11); o.start(t); o.stop(t + .12) }
+        if (type === 'hit') { o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(55, t + .11); g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.001, t + .11); o.start(t); o.stop(t + .12) }
         else if (type === 'heavy') { o.type = 'square'; o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(38, t + .2); g.gain.setValueAtTime(.25, t); g.gain.exponentialRampToValueAtTime(.001, t + .2); o.start(t); o.stop(t + .21) }
         else if (type === 'blk') { o.type = 'triangle'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(220, t + .06); g.gain.setValueAtTime(.14, t); g.gain.exponentialRampToValueAtTime(.001, t + .06); o.start(t); o.stop(t + .07) }
         else if (type === 'gb') { o.type = 'sawtooth'; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(90, t + .28); g.gain.setValueAtTime(.25, t); g.gain.exponentialRampToValueAtTime(.001, t + .28); o.start(t); o.stop(t + .29) }
@@ -623,25 +641,6 @@
       } catch (e) { }
     }
 
-    /* =========================================================================
-       【技データの見方（項目まとめ）】
-         n       : 技名
-         s       : 発生フレーム（攻撃判定が出るまでの時間）
-         a       : 持続フレーム（攻撃判定が出続ける時間）
-         t       : 全体フレーム（技開始から動けるまでの合計時間 ※硬直 = t - s - a）
-         d       : ダメージ（最大HP 10000）
-         r       : リーチ倍率（キャラ幅 40px = 1.0） / backR: 後方リーチ倍率
-         h       : 攻撃属性（'h'=上段 / 'm'=中段 / 'l'=下段）
-         g       : ガードされたときのフレーム（有利+ / 不利- の基準値）
-         v       : ヒットしたときのフレーム（有利+ / 不利- の基準値）
-         kd      : ダウンさせる時間（フレーム数。指定するとヒット時にダウン）
-         c       : 1で必殺技キャンセル可 / exC: 1でEXキャンセル可
-         tc      : ターゲットコンボ派生先（例: { P: 'TC1', K: 'TCK' }）
-         inv     : 完全無敵フレーム / aaInv: 対空無敵フレーム / projInv: 弾無敵フレーム
-         mv      : 動作中の前進・後退スピード（マイナスで後退）
-         gb      : ガードブレイク時の相手硬直フレーム / chip: ガード削りダメージ
-         fb      : 発射する飛び道具のID（下の FBS で設定）
-       ========================================================================= */
     const CHARS = [
       {
         id: 0, name: '弾キャラ', role: '砲台・地上統制', spd: 3.05, col: '#4aa3ff',
@@ -741,18 +740,6 @@
       }];
     for (const c of CHARS) for (const k in c.M) c.M[k].k = k;
 
-    /* =========================================================================
-       【飛び道具（弾）データの見方（項目まとめ）】
-         pwr     : 弾の強度（1:通常弾 ＜ 2:タメ弾・EX弾 ＜ 3:超必殺ビーム ※同強度は相殺）
-         d       : ダメージ
-         h       : 攻撃属性（'h'=上段 / 'm'=中段 / 'l'=下段）
-         g       : ガードされたときの硬直フレーム / v: ヒットしたときの硬直フレーム
-         kd      : ダウンさせる時間（フレーム数。指定するとヒット時にダウン）
-         spd     : 弾の横スピード / vy: 弾の縦スピード / retSpd: ブーメランの戻りスピード
-         maxLife : ブーメランが折り返すまでのフレーム数（大きいほど奥まで飛ぶ）
-         rad     : 弾の当たり判定の大きさ（半径px）
-         one     : 1で画面内に1発制限（boom:1 のブーメランは制限なしで複数出せる）
-       ========================================================================= */
     const FBS = {
       z_norm:    { pwr: 1, d: 700,  h: 'h', g: 18, v: 24, spd: 15,  rad: 10, col: '#ffb347', one: 1 },
       z_ex:      { pwr: 2, d: 910,  h: 'h', g: 20, v: 26, kd: 55, spd: 30,  rad: 12, col: '#6fe3ff', one: 1 },
@@ -786,45 +773,26 @@
     const LOC = mkInp(), I = mkInp(), CI = mkInp();
     const BTN_KEYS = ['P', 'K', 'S', 'T', 'X', 'SYS'];
 
-    /* トレーニングモード設定＆状態 */
+    const LOCAL_VS = { active: 0, c2: 1, assign: 0 };
+
     const TRN = {
-      pos: 0,       // 0:中央, 1:画面端(右), 2:逆画面端(左), 3:密着
-      dummy: 0,     // 0:立ち, 1:しゃがみ, 2:ジャンプ, 3:CPU(弱), 4:CPU(強), 5:REC再生
-      guard: 0,     // 0:なし, 1:全ガード, 2:1発目のみ, 3:2発目以降, 4:ランダム
-      rev: 0,       // 0:なし, 1:最速小技, 2:無敵技, 3:無敵切り返し, 4:投げ, 5:ジャンプ
-      tech: 0,      // 0:OFF, 1:ON, 2:50%
-      counter: 0,   // 0:通常, 1:強制パニッシュ
-      autoHp: 1,    // 1:コンボ終了後全回復
-      gaugeMode: 1, // 0:通常, 1:コンボ後MAX, 2:常にMAX
-      infStock: 0,  // 1:特殊キャラストック常にMAX
-      keyLog: 1,    // 1:キー履歴表示
-      infoHud: 1,   // 1:ダメージ・距離詳細表示
-      ctrl2P: 0,    // 1:2P直接操作
-      recState: 0,  // 0:待機, 1:録画中, 2:再生中
-      recLoop: 1,   // 1:ループ再生
-      recData: [],
-      recIdx: 0,
-      recWait: 0,
-      prev2Rec: 0,
-      guardHitCnt: 0,
-      randBlk: 0,
-      prevES: 'i',
-      maxComboDmg: 0,
-      lastDmg: 0,
-      lastScale: 100
+      pos: 0, dummy: 0, guard: 0, rev: 0, tech: 0, counter: 0, autoHp: 1, gaugeMode: 1,
+      infStock: 0, keyLog: 1, infoHud: 1, ctrl2P: 0, recState: 0, recLoop: 1,
+      recData: [], recIdx: 0, recWait: 0, prev2Rec: 0, guardHitCnt: 0, randBlk: 0,
+      prevES: 'i', maxComboDmg: 0, lastDmg: 0, lastScale: 100
     };
 
     const KEY_LOG = [];
     function pushKeyLog(inp) {
-      if (NET.active || !TRN.keyLog) return;
+      if (NET.active || LOCAL_VS.active || !TRN.keyLog) return;
       const lr = inp.l && inp.r;
       const l = lr ? 0 : inp.l, r = lr ? 0 : inp.r;
       let dir = '・';
-      if (uAnd(inp.u, l)) dir = '↖';
-      else if (uAnd(inp.u, r)) dir = '↗';
+      if (inp.u && l) dir = '↖';
+      else if (inp.u && r) dir = '↗';
       else if (inp.u) dir = '↑';
-      else if (uAnd(inp.d, l)) dir = '↙';
-      else if (uAnd(inp.d, r)) dir = '↘';
+      else if (inp.d && l) dir = '↙';
+      else if (inp.d && r) dir = '↘';
       else if (inp.d) dir = '↓';
       else if (l) dir = '←';
       else if (r) dir = '→';
@@ -844,18 +812,144 @@
         if (KEY_LOG.length > 12) KEY_LOG.pop();
       }
     }
-    function uAnd(a, b) { return a && b }
 
+    /* =========================================================================
+       ロールバックネットコード（GGPOスタイル）管理＆スナップショット
+       ========================================================================= */
     const NET = {
-      peer: null, conn: null, active: 0, side: 0, room: '', myCid: 0, delay: 3,
-      simFr: 0, locSentUpTo: -1,
+      peer: null, conn: null, active: 0, mode: '', side: 0, myCid: 0, delay: 1,
+      simFr: 0, syncFr: 0, locSentUpTo: -1,
       in1: new Map(), in2: new Map(),
+      predMap: new Map(), snaps: new Map(),
+      lastRemoteBits: 0, lastRemoteFr: -1, firstMismatchFr: -1,
+      rbCount: 0, lastRbFrames: 0,
       prev1: 0, prev2: 0,
       rematchSelf: 0, rematchPeer: 0,
       waitFrames: 0,
       connIn: null, hist: new Map(), peerAck: -1, mid: 0, stalled: 0,
-      rtt: 0, route: '', pingTimer: 0
+      rtt: 0, route: '', pingTimer: 0,
+      ws: null
     };
+
+    function serializeFighter(p) {
+      return {
+        x: p.x, y: p.y, vy: p.vy, vx: p.vx, jx: p.jx, f: p.f, hp: p.hp, g: p.g,
+        s: p.s, t: p.t, dnMax: p.dnMax, supCd: p.supCd,
+        mKey: p.m ? p.m.k : null, fr: p.fr, cmb: p.cmb,
+        cid: p.cid, c: p.c, fb: p.fb, n: p.n, cr: p.cr, gd: p.gd,
+        inL: p.inL, inR: p.inR, hit: p.hit, gw: p.gw, airUsed: p.airUsed,
+        stock: p.stock, bkTap: p.bkTap, prevBk: p.prevBk,
+        thWin: p.thWin,
+        thById: p.thBy === P ? 1 : p.thBy === E ? 2 : 0,
+        thMKey: p.thM ? p.thM.k : null,
+        thDir: p.thDir, thType: p.thType, thDur: p.thDur,
+        thTargetId: p.thTarget === P ? 1 : p.thTarget === E ? 2 : 0,
+        thBaseX: p.thBaseX,
+        chaosQ: p.chaosQ, chaosT: p.chaosT, chaosIdx: p.chaosIdx,
+        pop: p.pop, popT: p.popT, w: p.w, cf: p.cf,
+        cd: p.cd, dn: p.dn, cs: p.cs, pun: p.pun, lsid: p.lsid, mid: p.mid,
+        twT: p.twT, twK: p.twK
+      };
+    }
+
+    function restoreFighter(p, st) {
+      const M = CHARS[st.cid].M;
+      p.x = st.x; p.y = st.y; p.vy = st.vy; p.vx = st.vx; p.jx = st.jx;
+      p.f = st.f; p.hp = st.hp; p.g = st.g; p.s = st.s; p.t = st.t;
+      p.dnMax = st.dnMax; p.supCd = st.supCd;
+      p.m = st.mKey ? M[st.mKey] : null;
+      p.fr = st.fr; p.cmb = st.cmb; p.cid = st.cid; p.c = st.c;
+      p.fb = st.fb; p.n = st.n; p.cr = st.cr; p.gd = st.gd;
+      p.inL = st.inL; p.inR = st.inR; p.hit = st.hit; p.gw = st.gw; p.airUsed = st.airUsed;
+      p.stock = st.stock; p.bkTap = st.bkTap; p.prevBk = st.prevBk;
+      p.thWin = st.thWin;
+      p.thBy = st.thById === 1 ? P : st.thById === 2 ? E : null;
+      p.thM = st.thMKey ? M[st.thMKey] : null;
+      p.thDir = st.thDir; p.thType = st.thType; p.thDur = st.thDur;
+      p.thTarget = st.thTargetId === 1 ? P : st.thTargetId === 2 ? E : null;
+      p.thBaseX = st.thBaseX;
+      p.chaosQ = st.chaosQ; p.chaosT = st.chaosT; p.chaosIdx = st.chaosIdx;
+      p.pop = st.pop; p.popT = st.popT; p.w = st.w; p.cf = st.cf;
+      p.cd = st.cd; p.dn = st.dn; p.cs = st.cs; p.pun = st.pun; p.lsid = st.lsid; p.mid = st.mid;
+      p.twT = st.twT; p.twK = st.twK;
+    }
+
+    function cloneInpObj(inp) {
+      return {
+        l: inp.l, r: inp.r, u: inp.u, d: inp.d,
+        pr: Object.assign({}, inp.pr),
+        h: Object.assign({}, inp.h),
+        buf: inp.buf.map(v => ({ b: v.b, t: v.t }))
+      };
+    }
+
+    function restoreInpObj(dst, st) {
+      dst.l = st.l; dst.r = st.r; dst.u = st.u; dst.d = st.d;
+      dst.pr = Object.assign({}, st.pr);
+      dst.h = Object.assign({}, st.h);
+      dst.buf = st.buf.map(v => ({ b: v.b, t: v.t }));
+    }
+
+    function saveGameSnapshot() {
+      return {
+        P: serializeFighter(P),
+        E: serializeFighter(E),
+        fbs: fbs.map(b => ({
+          oId: b.o === P ? 1 : 2,
+          targetId: b.target === P ? 1 : b.target === E ? 2 : 0,
+          kind: b.kind, x: b.x, y: b.y, px: b.px, py: b.py,
+          vx: b.vx, vy: b.vy, dir: b.dir, life: b.life, ret: b.ret,
+          hits: b.hits, wait: b.wait, spd: b.spd || 0,
+          hitLock: b.hitLock || 0, sid: b.sid || 0, dead: b.dead || 0
+        })),
+        sparks: sparks.map(s => ({ x: s.x, y: s.y, col: s.col, t: s.t })),
+        I: cloneInpObj(I),
+        CI: cloneInpObj(CI),
+        prev1: NET.prev1,
+        prev2: NET.prev2,
+        ph, pt, msg, rw: [rw[0], rw[1]],
+        FR, pnT, cutT, cutTxt, cutCol, T, HS, SHK, SID,
+        FM: {
+          max: FM.max,
+          p: FM.p.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl })),
+          e: FM.e.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl })),
+          idle: FM.idle, active: FM.active, adv: FM.adv,
+          lastMove: FM.lastMove,
+          lastData: FM.lastData ? { s: FM.lastData.s, a: FM.lastData.a, t: FM.lastData.t } : null,
+          atkSide: FM.atkSide, atkBusy: FM.atkBusy, defBusy: FM.defBusy
+        }
+      };
+    }
+
+    function loadGameSnapshot(snap) {
+      restoreFighter(P, snap.P);
+      restoreFighter(E, snap.E);
+      fbs = snap.fbs.map(b => ({
+        o: b.oId === 1 ? P : E,
+        target: b.targetId === 1 ? P : b.targetId === 2 ? E : null,
+        kind: b.kind, x: b.x, y: b.y, px: b.px, py: b.py,
+        vx: b.vx, vy: b.vy, dir: b.dir, life: b.life, ret: b.ret,
+        hits: b.hits, wait: b.wait, spd: b.spd,
+        hitLock: b.hitLock, sid: b.sid, dead: b.dead
+      }));
+      sparks = snap.sparks.map(s => ({ x: s.x, y: s.y, col: s.col, t: s.t }));
+      restoreInpObj(I, snap.I);
+      restoreInpObj(CI, snap.CI);
+      NET.prev1 = snap.prev1;
+      NET.prev2 = snap.prev2;
+      ph = snap.ph; pt = snap.pt; msg = snap.msg; rw = [snap.rw[0], snap.rw[1]];
+      FR = snap.FR; pnT = snap.pnT; cutT = snap.cutT; cutTxt = snap.cutTxt; cutCol = snap.cutCol;
+      T = snap.T; HS = snap.HS; SHK = snap.SHK; SID = snap.SID;
+      if (snap.FM) {
+        FM.max = snap.FM.max;
+        FM.p = snap.FM.p.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl }));
+        FM.e = snap.FM.e.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl }));
+        FM.idle = snap.FM.idle; FM.active = snap.FM.active; FM.adv = snap.FM.adv;
+        FM.lastMove = snap.FM.lastMove;
+        FM.lastData = snap.FM.lastData ? { s: snap.FM.lastData.s, a: snap.FM.lastData.a, t: snap.FM.lastData.t } : null;
+        FM.atkSide = snap.FM.atkSide; FM.atkBusy = snap.FM.atkBusy; FM.defBusy = snap.FM.defBusy;
+      }
+    }
 
     function packLocalBits(inp) {
       let b = 0;
@@ -899,7 +993,6 @@
       }
     }
 
-    // 入力専用チャンネル（順序保証なし）。未接続なら制御チャンネルにフォールバック
     function sendIn(obj) {
       const c = (NET.connIn && NET.connIn.open) ? NET.connIn : NET.conn;
       if (c && c.open) {
@@ -917,11 +1010,26 @@
         return;
       }
       if (msg.t === 'in' && NET.active && (msg.m | 0) === (NET.mid | 0) && Array.isArray(msg.b)) {
-        const targetMap = NET.side === 1 ? NET.in2 : NET.in1;
+        const peerMap = NET.side === 1 ? NET.in2 : NET.in1;
         const s0 = msg.s | 0;
         for (let i = 0; i < msg.b.length; i++) {
           const f = s0 + i;
-          if (f >= NET.simFr && !targetMap.has(f)) targetMap.set(f, msg.b[i] | 0);
+          const actualBits = msg.b[i] | 0;
+          if (f > NET.lastRemoteFr) {
+            NET.lastRemoteFr = f;
+            NET.lastRemoteBits = actualBits;
+          }
+          if (f >= NET.syncFr && !peerMap.has(f)) {
+            peerMap.set(f, actualBits);
+            if (f < NET.simFr && NET.predMap.has(f)) {
+              const predicted = NET.predMap.get(f);
+              if (predicted !== actualBits) {
+                if (NET.firstMismatchFr === -1 || f < NET.firstMismatchFr) {
+                  NET.firstMismatchFr = f;
+                }
+              }
+            }
+          }
         }
         if (typeof msg.a === 'number' && msg.a > NET.peerAck) NET.peerAck = msg.a;
       }
@@ -939,8 +1047,9 @@
       NET.pingTimer = setInterval(() => sendIn({ t: 'ping', ts: performance.now() }), 1000);
     }
 
-    // 経路判定（P2P直結 / TURN中継）
     function detectRoute() {
+      if (NET.mode === 'cable') { NET.route = 'Type-C直結'; return }
+      if (NET.mode === 'ws') { NET.route = 'サーバー'; return }
       try {
         const pc = NET.conn && NET.conn.peerConnection;
         if (!pc || !pc.getStats) return;
@@ -972,15 +1081,14 @@
         NET.hist.set(NET.locSentUpTo, bits);
       }
       LOC.pr.SUP = 0;
-      // 相手から確実に受け取れている最後のフレーム（ACK）
-      let a = NET.simFr;
+
+      let a = NET.syncFr;
       while (peerMap.has(a)) a++;
       a--;
-      // 相手が受信済みの分は履歴から破棄
+
       for (const k of NET.hist.keys()) {
         if (k <= NET.peerAck) NET.hist.delete(k); else break;
       }
-      // 相手のACKの次から最新までを送る（欠損しても次回自動で再送される）
       const from = Math.max(NET.delay, NET.peerAck + 1, NET.locSentUpTo - 63);
       const b = [];
       for (let f = from; f <= NET.locSentUpTo; f++) {
@@ -992,6 +1100,7 @@
     }
 
     function startNetMatch(side, cid1, cid2, delay, mid) {
+      if (LOCAL_VS.active) stopLocal2P(1);
       NET.active = 1;
       NET.mid = mid | 0;
       NET.hist.clear();
@@ -1000,9 +1109,17 @@
       NET.side = side;
       NET.delay = delay;
       NET.simFr = 0;
+      NET.syncFr = 0;
       NET.locSentUpTo = delay - 1;
       NET.in1.clear();
       NET.in2.clear();
+      NET.predMap.clear();
+      NET.snaps.clear();
+      NET.lastRemoteBits = 0;
+      NET.lastRemoteFr = delay - 1;
+      NET.firstMismatchFr = -1;
+      NET.rbCount = 0;
+      NET.lastRbFrames = 0;
       NET.prev1 = 0;
       NET.prev2 = 0;
       NET.rematchSelf = 0;
@@ -1033,17 +1150,49 @@
       clearInterval(NET.pingTimer); NET.pingTimer = 0; NET.rtt = 0; NET.route = '';
       if (NET.connIn) { try { NET.connIn.close() } catch (e) { } NET.connIn = null }
       if (NET.conn) { try { NET.conn.close() } catch (e) { } NET.conn = null }
+      if (NET.ws) { try { NET.ws.close() } catch (e) { } NET.ws = null }
       if (NET.peer) { try { NET.peer.destroy() } catch (e) { } NET.peer = null }
       NET.active = 0;
+      NET.mode = '';
       NET.side = 0;
-      NET.room = '';
       NET.rematchSelf = 0;
       NET.rematchPeer = 0;
-      document.getElementById('oRoomCode').style.display = 'none';
-      document.getElementById('oCopyBtn').style.display = 'none';
-      document.getElementById('oSetupCard').style.display = 'block';
+      NET.snaps.clear();
+      NET.predMap.clear();
+      document.getElementById('oQuickCards').style.display = 'block';
       resetTrainingPos(1);
       updateModeUI(reason || '切断しました（トレーニングモード）');
+    }
+
+    function startLocal2P() {
+      if (NET.active || NET.peer || NET.ws) stopNetMatch();
+      LOCAL_VS.active = 1;
+      TRN.recState = 0;
+      TRN.ctrl2P = 0;
+      Object.assign(LOC, mkInp());
+      Object.assign(I, mkInp());
+      Object.assign(CI, mkInp());
+      cSel = [NET.myCid, LOCAL_VS.c2];
+      rw = [0, 0];
+      setChars();
+      P.g = 0; E.g = 0;
+      round();
+      updateModeUI();
+      document.getElementById('onl').classList.remove('open');
+      document.getElementById('trn').classList.remove('open');
+      document.getElementById('tb').classList.remove('open');
+      pop(P, 'ローカル2P対戦開始！');
+    }
+
+    function stopLocal2P(silent) {
+      LOCAL_VS.active = 0;
+      Object.assign(LOC, mkInp());
+      Object.assign(I, mkInp());
+      Object.assign(CI, mkInp());
+      if (!silent) {
+        resetTrainingPos(1);
+        updateModeUI('ローカル2P対戦を終了しました（トレーニングモード）');
+      }
     }
 
     function updateModeUI(customMsg) {
@@ -1053,19 +1202,34 @@
       const stat = document.getElementById('oStat');
       const remBtn = document.getElementById('oRematchBtn');
       const discBtn = document.getElementById('oDiscBtn');
+      const l2pStart = document.getElementById('l2pStartBtn');
+      const l2pStop = document.getElementById('l2pStopBtn');
 
       if (NET.active) {
-        bMenu.textContent = '🟢 オンライン(' + (NET.side === 1 ? '1P' : '2P') + ')';
+        const tag = NET.mode === 'cable' ? '🔌 直結' : '🌐 対戦中';
+        const modeTitle = NET.mode === 'cable' ? 'Type-C直結対戦中！' : 'オンライン対戦中！';
+        bMenu.textContent = tag + '(' + (NET.side === 1 ? '1P' : '2P') + ')';
         bMenu.classList.add('live');
         bReset.style.display = 'none';
         bRec.style.display = 'none';
         stat.style.color = '#38d9a9';
-        stat.textContent = customMsg || ('対戦中！ あなたは ' + (NET.side === 1 ? '1P（左側）' : '2P（右側）') + ' / 遅延:' + NET.delay + 'F');
+        stat.textContent = customMsg || (modeTitle + ' あなたは ' + (NET.side === 1 ? '1P（左側）' : '2P（右側）') + ' / 遅延:' + NET.delay + 'F');
         remBtn.style.display = 'inline-block';
         discBtn.style.display = 'inline-block';
-        document.getElementById('oSetupCard').style.display = 'none';
+        document.getElementById('oQuickCards').style.display = 'none';
+      } else if (LOCAL_VS.active) {
+        bMenu.textContent = '🎮 2P対戦中';
+        bMenu.classList.add('live');
+        bReset.style.display = 'none';
+        bRec.style.display = 'none';
+        stat.style.color = '#38d9a9';
+        stat.textContent = customMsg || '1端末ローカル2P対戦中（通信ゼロ・2本先取）';
+        remBtn.style.display = 'none';
+        discBtn.style.display = 'inline-block';
+        if (l2pStart) l2pStart.style.display = 'none';
+        if (l2pStop) l2pStop.style.display = 'inline-block';
       } else {
-        bMenu.textContent = '🌐 オンライン';
+        bMenu.textContent = '⚡ 対戦スタート';
         bMenu.classList.remove('live');
         bReset.style.display = 'inline-block';
         bRec.style.display = 'inline-block';
@@ -1073,8 +1237,10 @@
         stat.style.color = '#ffd34d';
         if (customMsg) stat.textContent = customMsg;
         remBtn.style.display = 'none';
-        discBtn.style.display = NET.peer ? 'inline-block' : 'none';
-        document.getElementById('oSetupCard').style.display = 'block';
+        discBtn.style.display = (NET.peer || NET.ws) ? 'inline-block' : 'none';
+        document.getElementById('oQuickCards').style.display = 'block';
+        if (l2pStart) l2pStart.style.display = 'inline-block';
+        if (l2pStop) l2pStop.style.display = 'none';
       }
     }
 
@@ -1149,7 +1315,7 @@
     }
 
     function resetTrainingPos(silent) {
-      if (NET.active) return;
+      if (NET.active || LOCAL_VS.active) return;
       for (const q of [P, E]) {
         const cid = q.cid;
         Object.assign(q, {
@@ -1174,7 +1340,7 @@
     }
 
     function handleTrainingAutoRecover() {
-      if (NET.active) return;
+      if (NET.active || LOCAL_VS.active) return;
       if (TRN.gaugeMode === 2) { P.g = 4; E.g = 4 }
       if (TRN.infStock) {
         if (P.cid === 2) P.stock = 4;
@@ -1612,7 +1778,7 @@
         pop(p, '投げ抜け！'); se('tech');
         return;
       }
-      if ((p.s === 'bs' || p.s === 'dn') && bk && i.pr.SYS && (p.g >= 1 || (!NET.active && p === E && TRN.rev === 3))) {
+      if ((p.s === 'bs' || p.s === 'dn') && bk && i.pr.SYS && (p.g >= 1 || (!NET.active && !LOCAL_VS.active && p === E && TRN.rev === 3))) {
         if (p.g >= 1) p.g -= 1;
         p.y = 0; p.vy = 0; p.vx = 0; p.airUsed = 0; go(p, M.REV); pop(p, '切り返し！'); se('tech');
         return;
@@ -1656,7 +1822,7 @@
       if (i.pr.SUP && canSuper(p)) { startSuper(p); return }
       if (i.pr.T) { go(p, M.T); return }
       if (fw && i.pr.SYS && p.g >= .25) { p.g -= .25; go(p, M.GB); return }
-      if (i.pr.X && (p.g >= 1 || (!NET.active && p === E && TRN.rev === 2))) {
+      if (i.pr.X && (p.g >= 1 || (!NET.active && !LOCAL_VS.active && p === E && TRN.rev === 2))) {
         const m = M['X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N')];
         if (m) { if (p.g >= 1) p.g -= 1; go(p, m); return }
       }
@@ -1806,7 +1972,7 @@
               const dmg = m.d;
               def.hp -= dmg;
               def.g = Math.min(4, def.g + dmg / 3400);
-              if (!NET.active && def === E) {
+              if (!NET.active && !LOCAL_VS.active && def === E) {
                 TRN.lastDmg = dmg; TRN.lastScale = 100;
                 if (dmg > TRN.maxComboDmg) TRN.maxComboDmg = dmg;
               }
@@ -1954,7 +2120,7 @@
       const holdGuard = dir > 0 ? o.inR : o.inL;
       const canGuard = holdGuard && (o.s === 'i' || o.s === 'bs') && o.y >= 0;
       const heightOk = m.h === 'h' || (m.h === 'm' && !o.cr) || (m.h === 'l' && o.cr);
-      if (!NET.active && o === E) TRN.guardHitCnt++;
+      if (!NET.active && !LOCAL_VS.active && o === E) TRN.guardHitCnt++;
 
       if (canGuard && heightOk) {
         if (m.gb) {
@@ -1977,7 +2143,7 @@
 
       const wasAir = o.y < 0;
       if (o.s !== 'hs') {
-        o.pun = (o.s === 'atk' && o.fr >= o.m.s + (o.m.a || 0)) || (!NET.active && o === E && TRN.counter === 1);
+        o.pun = (o.s === 'atk' && o.fr >= o.m.s + (o.m.a || 0)) || (!NET.active && !LOCAL_VS.active && o === E && TRN.counter === 1);
         o.cd = 0;
       }
       const sid = m.sid || p.mid; o.cmb = o.s === 'hs' ? o.cmb + (o.lsid === sid ? 0 : 1) : 1; o.lsid = sid;
@@ -1988,7 +2154,7 @@
       o.cd += dm; o.dn = o.cmb; o.cs = 90;
       if (o.pun && n === 0) pnT = 70;
 
-      if (!NET.active && o === E) {
+      if (!NET.active && !LOCAL_VS.active && o === E) {
         TRN.lastDmg = dm;
         TRN.lastScale = Math.round(scale * 100);
         if (o.cd > TRN.maxComboDmg) TRN.maxComboDmg = o.cd;
@@ -2029,7 +2195,6 @@
     function trainingDummyAI(c, p, i) {
       i.l = i.r = i.u = i.d = 0; i.pr = {}; i.h = {};
 
-      // 1. Check Throw Tech
       if (c.thWin > 0) {
         if (TRN.tech === 1 || (TRN.tech === 2 && Math.random() < .5)) {
           i.pr.T = 1;
@@ -2037,7 +2202,6 @@
         }
       }
 
-      // 2. Check Reversal on recovery or guard-cancel
       const justRecovered = (['hs', 'bs', 'gb', 'dn'].includes(TRN.prevES) && c.s === 'i');
       if (TRN.rev > 0) {
         const fw = c.f > 0 ? 'r' : 'l', bk = c.f > 0 ? 'l' : 'r';
@@ -2055,7 +2219,6 @@
         }
       }
 
-      // 3. Guard Modes override when idle/blockstun
       const threat = isThreatIncoming(c, p);
       if (c.s === 'i' && !threat) {
         TRN.guardHitCnt = 0;
@@ -2074,11 +2237,10 @@
         }
       }
 
-      // 4. Base Dummy State
       const dm = TRN.dummy;
-      if (dm === 0) return; // 立ち
-      if (dm === 1) { i.d = 1; return } // しゃがみ
-      if (dm === 2) { if (c.s === 'i') i.u = 1; return } // ジャンプ
+      if (dm === 0) return;
+      if (dm === 1) { i.d = 1; return }
+      if (dm === 2) { if (c.s === 'i') i.u = 1; return }
       if (dm === 3 || dm === 4) {
         const level = (dm === 3 ? 2 : 3);
         cpuLogic(c, p, i, level);
@@ -2151,73 +2313,11 @@
       dst.pr = {}; dst.h = {}; dst.buf = [];
     }
 
-    function update() {
-      if (NET.active) {
-        pumpLocalNetInputs();
-        if (!NET.in1.has(NET.simFr) || !NET.in2.has(NET.simFr)) {
-          NET.waitFrames++;
-          NET.stalled = 1;
-          return;
-        }
-        NET.waitFrames = 0;
-        const b1 = NET.in1.get(NET.simFr);
-        const b2 = NET.in2.get(NET.simFr);
-        NET.in1.delete(NET.simFr);
-        NET.in2.delete(NET.simFr);
-        applyBitsToInp(b1, NET.prev1, I);
-        applyBitsToInp(b2, NET.prev2, CI);
-        NET.prev1 = b1;
-        NET.prev2 = b2;
-        NET.simFr++;
-      } else {
-        if (TRN.recState === 1) {
-          clearInp(I);
-          const bits = packLocalBits(LOC);
-          TRN.recData.push(bits);
-          copyLocTo(CI);
-          pushKeyLog(CI);
-          if (TRN.recData.length >= 360) {
-            stopRecordingAndPlay();
-          }
-        } else if (TRN.ctrl2P) {
-          clearInp(I);
-          copyLocTo(CI);
-          pushKeyLog(CI);
-        } else {
-          copyLocTo(I);
-          pushKeyLog(I);
-          if (TRN.recState === 2 && TRN.recData.length > 0) {
-            if (TRN.recWait > 0) {
-              TRN.recWait--;
-              clearInp(CI);
-              TRN.prev2Rec = 0;
-            } else {
-              const bits = TRN.recData[TRN.recIdx++];
-              applyBitsToInp(bits, TRN.prev2Rec, CI);
-              TRN.prev2Rec = bits;
-              if (TRN.recIdx >= TRN.recData.length) {
-                if (TRN.recLoop) {
-                  TRN.recIdx = 0;
-                  TRN.recWait = 24;
-                  TRN.prev2Rec = 0;
-                } else {
-                  TRN.recState = 0;
-                  TRN.dummy = 0;
-                  syncRecButtons();
-                  syncTrainingMenuBtns();
-                }
-              }
-            }
-          } else {
-            trainingDummyAI(E, P, CI);
-          }
-        }
-      }
-
+    function advanceGameFrame() {
       FR++;
       if (HS > 0) { HS--; return }
       if (cutT > 0) { cutT--; return }
-      if (NET.active) {
+      if (NET.active || LOCAL_VS.active) {
         if (ph === 2) return;
         if (ph === 1) { if (--pt <= 0) round(); return }
       }
@@ -2267,7 +2367,6 @@
         }
       }
 
-      // 弾と弾の衝突判定（強度 pwr による優劣・相殺）
       for (let idx1 = 0; idx1 < fbs.length; idx1++) {
         const b = fbs[idx1];
         if (b.dead || b.wait > 0) continue;
@@ -2353,7 +2452,7 @@
       if (E.cs > 0) E.cs--;
       if (pnT > 0) pnT--;
 
-      if (NET.active) {
+      if (NET.active || LOCAL_VS.active) {
         if (--T <= 0 || P.hp <= 0 || E.hp <= 0) {
           const w = P.hp > E.hp ? 0 : E.hp > P.hp ? 1 : -1;
           if (w >= 0) rw[w]++;
@@ -2367,6 +2466,130 @@
         if (E.hp <= 0) E.hp = 1;
         handleTrainingAutoRecover();
       }
+    }
+
+    function runNetSimFrame(f) {
+      NET.snaps.set(f, saveGameSnapshot());
+
+      const b1 = NET.in1.has(f) ? NET.in1.get(f) : NET.lastRemoteBits;
+      const b2 = NET.in2.has(f) ? NET.in2.get(f) : NET.lastRemoteBits;
+
+      if (NET.side === 1) {
+        if (!NET.in2.has(f)) NET.predMap.set(f, b2);
+        else NET.predMap.delete(f);
+      } else {
+        if (!NET.in1.has(f)) NET.predMap.set(f, b1);
+        else NET.predMap.delete(f);
+      }
+
+      applyBitsToInp(b1, NET.prev1, I);
+      applyBitsToInp(b2, NET.prev2, CI);
+      NET.prev1 = b1;
+      NET.prev2 = b2;
+
+      advanceGameFrame();
+    }
+
+    function update() {
+      if (NET.active) {
+        pumpLocalNetInputs();
+
+        while (NET.in1.has(NET.syncFr) && NET.in2.has(NET.syncFr) && NET.syncFr < NET.simFr) {
+          NET.in1.delete(NET.syncFr);
+          NET.in2.delete(NET.syncFr);
+          NET.predMap.delete(NET.syncFr);
+          NET.snaps.delete(NET.syncFr);
+          NET.syncFr++;
+        }
+
+        if (NET.firstMismatchFr !== -1 && NET.firstMismatchFr < NET.simFr) {
+          const rbFrom = Math.max(NET.firstMismatchFr, NET.syncFr);
+          const snap = NET.snaps.get(rbFrom);
+          if (snap) {
+            const rbLen = NET.simFr - rbFrom;
+            NET.rbCount++;
+            NET.lastRbFrames = rbLen;
+
+            loadGameSnapshot(snap);
+            IS_ROLLBACK = 1;
+            for (let f = rbFrom; f < NET.simFr; f++) {
+              runNetSimFrame(f);
+            }
+            IS_ROLLBACK = 0;
+          }
+          NET.firstMismatchFr = -1;
+        }
+
+        if (NET.simFr - NET.syncFr >= MAX_ROLLBACK_FRAMES) {
+          NET.waitFrames++;
+          NET.stalled = 1;
+          return;
+        }
+        NET.waitFrames = 0;
+
+        runNetSimFrame(NET.simFr);
+        NET.simFr++;
+        return;
+      }
+
+      if (LOCAL_VS.active) {
+        const pads = getConnectedPads();
+        if (pads.length >= 2 || LOCAL_VS.assign === 1) {
+          copyLocTo(I);
+          if (pads[0]) mergePadToInp(pads[0], 0, I);
+          clearInp(CI);
+          if (pads[1]) mergePadToInp(pads[1], 1, CI);
+        } else {
+          copyLocTo(I);
+          clearInp(CI);
+          if (pads[0]) mergePadToInp(pads[0], 0, CI);
+        }
+      } else {
+        if (TRN.recState === 1) {
+          clearInp(I);
+          const bits = packLocalBits(LOC);
+          TRN.recData.push(bits);
+          copyLocTo(CI);
+          pushKeyLog(CI);
+          if (TRN.recData.length >= 360) {
+            stopRecordingAndPlay();
+          }
+        } else if (TRN.ctrl2P) {
+          clearInp(I);
+          copyLocTo(CI);
+          pushKeyLog(CI);
+        } else {
+          copyLocTo(I);
+          pushKeyLog(I);
+          if (TRN.recState === 2 && TRN.recData.length > 0) {
+            if (TRN.recWait > 0) {
+              TRN.recWait--;
+              clearInp(CI);
+              TRN.prev2Rec = 0;
+            } else {
+              const bits = TRN.recData[TRN.recIdx++];
+              applyBitsToInp(bits, TRN.prev2Rec, CI);
+              TRN.prev2Rec = bits;
+              if (TRN.recIdx >= TRN.recData.length) {
+                if (TRN.recLoop) {
+                  TRN.recIdx = 0;
+                  TRN.recWait = 24;
+                  TRN.prev2Rec = 0;
+                } else {
+                  TRN.recState = 0;
+                  TRN.dummy = 0;
+                  syncRecButtons();
+                  syncTrainingMenuBtns();
+                }
+              }
+            }
+          } else {
+            trainingDummyAI(E, P, CI);
+          }
+        }
+      }
+
+      advanceGameFrame();
     }
 
     function lb(x, y, a, l, b, m) {
@@ -2606,9 +2829,8 @@
     }
 
     function drawTrainingHUD() {
-      if (NET.active) return;
+      if (NET.active || LOCAL_VS.active) return;
 
-      // 1. Key History (Input Display) on left
       if (TRN.keyLog && KEY_LOG.length) {
         X.save();
         const kx = 12, ky0 = 108;
@@ -2630,7 +2852,6 @@
         X.restore();
       }
 
-      // 2. Detailed Damage / Scaling / Distance HUD on right
       if (TRN.infoHud) {
         X.save();
         const bx = W - 176, by = 58, bw = 164, bh = 50;
@@ -2655,7 +2876,6 @@
         X.restore();
       }
 
-      // 3. Recording / Playback Banner
       if (TRN.recState === 1) {
         X.save();
         X.fillStyle = 'rgba(190,30,50,.85)';
@@ -2688,12 +2908,14 @@
       for (let gy = G - 20; gy >= 120; gy -= 20) {
         X.beginPath(); X.moveTo(0, gy); X.lineTo(W, gy); X.stroke();
       }
-      if (!NET.active) {
+      if (!NET.active && !LOCAL_VS.active) {
         X.strokeStyle = 'rgba(255,255,255,.03)';
         for (let gx = 80; gx < W; gx += 80) {
           X.beginPath(); X.moveTo(gx, 120); X.lineTo(gx, G); X.stroke();
         }
       }
+
+      const isMatch = NET.active || LOCAL_VS.active;
 
       for (const [q, l] of [[P, 1], [E, 0]]) {
         const x = l ? 12 : W / 2 + 28, w = W / 2 - 40, f = Math.max(0, q.hp / 1e4) * w;
@@ -2708,7 +2930,7 @@
         X.fillStyle = '#0d0e14';
         for (let k = 1; k < 4; k++)X.fillRect(x + w * k / 4 - 1, 30, 2, 7);
 
-        if (NET.active) {
+        if (isMatch) {
           X.fillStyle = '#fff';
           for (let k = 0; k < 2; k++) {
             X.globalAlpha = k < rw[l ? 0 : 1] ? 1 : .25;
@@ -2719,7 +2941,8 @@
         X.font = 'bold 11px system-ui'; X.textAlign = l ? 'left' : 'right';
         let sub = CHARS[q.cid].name;
         if (NET.active && ((l && NET.side === 1) || (!l && NET.side === 2))) sub += '(あなた)';
-        if (!NET.active && !l) {
+        if (LOCAL_VS.active) sub += l ? '(1P)' : '(2P)';
+        if (!isMatch && !l) {
           const dumLbl = ['立ち', 'しゃがみ', 'ジャンプ', 'CPU弱', 'CPU強', 'REC再生'][TRN.dummy];
           sub += ' [' + dumLbl + ']';
         }
@@ -2727,11 +2950,11 @@
         if (canSuper(q)) sub += ' ★超必殺OK';
         else if (q.supCd > 0) sub += ' [超必殺CD:' + Math.ceil(q.supCd * STEP_MS / 1000) + 's]';
         X.fillStyle = canSuper(q) ? '#ff9ef2' : '#b8bfd8';
-        const nameOffset = NET.active ? 38 : 4;
+        const nameOffset = isMatch ? 38 : 4;
         X.fillText(sub, l ? x + nameOffset : x + w - nameOffset, 51);
       }
 
-      if (!NET.active) {
+      if (!isMatch) {
         X.fillStyle = '#38d9a9'; X.font = 'bold 16px system-ui'; X.textAlign = 'center';
         X.fillText('TRAINING', W / 2, 27);
       }
@@ -2792,21 +3015,11 @@
         X.restore();
       }
 
-      if (!FM_VIS && HB_VIS) {
-        X.font = '10px system-ui'; X.textAlign = 'left';
-        const lx = 12, ly = 320;
-        X.fillStyle = '#4aa3ff'; X.fillRect(lx, ly - 8, 8, 8); X.fillStyle = '#b8bfd8'; X.fillText('頭/胴食らい', lx + 11, ly);
-        X.fillStyle = '#4de0a0'; X.fillRect(lx + 72, ly - 8, 8, 8); X.fillStyle = '#b8bfd8'; X.fillText('手足食らい', lx + 83, ly);
-        X.fillStyle = '#ff415a'; X.fillRect(lx + 142, ly - 8, 8, 8); X.fillStyle = '#b8bfd8'; X.fillText('攻撃判定', lx + 153, ly);
-        X.fillStyle = '#50ff8c'; X.fillRect(lx + 202, ly - 8, 8, 8); X.fillStyle = '#b8bfd8'; X.fillText('投げ判定', lx + 213, ly);
-        X.fillStyle = '#d49eff'; X.fillRect(lx + 262, ly - 8, 8, 8); X.fillStyle = '#b8bfd8'; X.fillText('弾/対空無敵', lx + 273, ly);
-      }
-
       drawFrameMeter();
       drawTrainingHUD();
 
       for (const [q, l] of [[E, 1], [P, 0]]) if (q.cs > 0) {
-        const x = l ? 12 : W - 12, yOff = (!NET.active && !l && TRN.infoHud) ? 124 : 76;
+        const x = l ? 12 : W - 12, yOff = (!isMatch && !l && TRN.infoHud) ? 124 : 76;
         X.textAlign = l ? 'left' : 'right';
         X.fillStyle = '#ffd34d'; X.font = 'bold 18px system-ui'; X.fillText(q.dn + '技コンボ', x, yOff);
         X.font = 'bold 14px system-ui'; X.fillText(q.cd + ' ダメージ' + (q.pun ? '（パニッシュ）' : ''), x, yOff + 20);
@@ -2834,18 +3047,20 @@
       }
 
       if (NET.active) {
-        const need = NET.rtt ? Math.ceil(NET.rtt / 2 / STEP_MS) + 1 : 0;
-        X.save(); X.font = '9px system-ui'; X.textAlign = 'right';
-        X.fillStyle = 'rgba(236,238,246,.7)';
-        X.fillText((NET.route ? NET.route + ' ' : '') + 'RTT ' + Math.round(NET.rtt) + 'ms / 遅延' + NET.delay + 'F', W - 6, 346);
-        if (need > NET.delay) { X.fillStyle = '#ffd34d'; X.fillText('推奨遅延 ' + need + 'F以上', W - 6, 356) }
+        const unconfirmed = Math.max(0, NET.simFr - NET.syncFr);
+        X.save(); X.font = '9.5px system-ui'; X.textAlign = 'right';
+        X.fillStyle = '#38d9a9';
+        X.fillText(
+          (NET.route ? NET.route + ' ' : '') +
+          'RTT ' + Math.round(NET.rtt) + 'ms / 遅延' + NET.delay + 'F / 予測先行' + unconfirmed + 'F / RB:' + NET.lastRbFrames + 'F',
+          W - 6, 346
+        );
         X.restore();
-      }
-
-      if (NET.active && NET.waitFrames > 12) {
-        X.fillStyle = 'rgba(0,0,0,.65)'; X.fillRect(W / 2 - 110, 135, 220, 34);
-        X.fillStyle = '#ffd34d'; X.font = 'bold 13px system-ui'; X.textAlign = 'center';
-        X.fillText('通信同期待機中...', W / 2, 157);
+      } else if (LOCAL_VS.active) {
+        X.save(); X.font = '9px system-ui'; X.textAlign = 'right';
+        X.fillStyle = '#38d9a9';
+        X.fillText('1端末・パッド2P対戦 (遅延0F)', W - 6, 346);
+        X.restore();
       }
 
       X.fillStyle = '#8d94ad'; X.font = '10px system-ui'; X.textAlign = 'center';
@@ -2854,10 +3069,9 @@
 
     const $ = id => document.getElementById(id), bsupEl = $('bsup');
 
-    /* 歯車ボタン：オフライン時はトレモ設定、オンライン時は簡易メニュー */
     $('gear').addEventListener('pointerdown', e => {
       e.stopPropagation();
-      if (NET.active) {
+      if (NET.active || LOCAL_VS.active) {
         $('tb').classList.toggle('open');
       } else {
         syncTrainingMenuBtns();
@@ -2871,7 +3085,7 @@
     });
 
     function startRecording() {
-      if (NET.active) return;
+      if (NET.active || LOCAL_VS.active) return;
       TRN.recData = [];
       TRN.recIdx = 0;
       TRN.recWait = 0;
@@ -2924,7 +3138,7 @@
 
     $('bRecBtn').addEventListener('pointerdown', e => {
       e.stopPropagation();
-      if (NET.active) return;
+      if (NET.active || LOCAL_VS.active) return;
       if (TRN.recState === 1) stopRecordingAndPlay();
       else if (TRN.recState === 2) stopPlayback();
       else if (TRN.recData.length > 0) stopRecordingAndPlay();
@@ -2933,21 +3147,55 @@
 
     bind('bsup', v => { if (v) LOC.pr.SUP = 1 });
     addEventListener('pointerdown', () => { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume() } catch (e) { } });
-    const GPm = [[2, 'P'], [3, 'K'], [5, 'S'], [0, 'T'], [1, 'X'], [7, 'SYS']], GPs = {};
-    function pollPad() { if (GPs.off) return; try { pollPad0() } catch (e) { GPs.off = 1 } }
-    function pollPad0() {
-      const l = navigator.getGamepads ? navigator.getGamepads() : [], g = [...l].find(x => x && x.connected); if (!g) return;
+
+    const GPm = [[2, 'P'], [3, 'K'], [5, 'S'], [0, 'T'], [1, 'X'], [7, 'SYS']], GPs = [{}, {}];
+    function getConnectedPads() {
+      try {
+        if (!navigator.getGamepads) return [];
+        const l = navigator.getGamepads();
+        return [...l].filter(x => x && x.connected);
+      } catch (e) { return [] }
+    }
+    function mergePadToInp(g, slot, dst) {
+      if (!g) return;
+      const st = GPs[slot] || (GPs[slot] = {});
       const b = i => g.buttons[i] && g.buttons[i].pressed, ax = g.axes[0] || 0, ay = g.axes[1] || 0;
-      if (Math.abs(ax) > .5 || Math.abs(ay) > .5 || g.buttons.some(x => x.pressed)) GPs.on = 1; if (!GPs.on) return;
+      if (Math.abs(ax) > .5 || Math.abs(ay) > .5 || g.buttons.some(x => x.pressed)) st.on = 1;
+      if (!st.on) return;
+      if (b(14) || ax < -.5) dst.l = 1;
+      if (b(15) || ax > .5) dst.r = 1;
+      if (b(12) || ay < -.5) dst.u = 1;
+      if (b(13) || ay > .5) dst.d = 1;
+      for (const [i, k] of GPm) {
+        const v = b(i) ? 1 : 0;
+        if (v) dst.h[k] = 1;
+        if (v && !st[i]) {
+          dst.pr[k] = 1;
+          dst.buf.push({ b: k, t: 14 });
+        }
+        st[i] = v;
+      }
+      const s = b(4) ? 1 : 0;
+      if (s && !st[4]) dst.pr.SUP = 1;
+      st[4] = s;
+    }
+    function pollPad() {
+      if (LOCAL_VS.active) return;
+      const pads = getConnectedPads();
+      if (!pads.length) return;
+      const g = pads[0], st = GPs[0];
+      const b = i => g.buttons[i] && g.buttons[i].pressed, ax = g.axes[0] || 0, ay = g.axes[1] || 0;
+      if (Math.abs(ax) > .5 || Math.abs(ay) > .5 || g.buttons.some(x => x.pressed)) st.on = 1;
+      if (!st.on) return;
       LOC.l = b(14) || ax < -.5 ? 1 : 0; LOC.r = b(15) || ax > .5 ? 1 : 0; LOC.u = b(12) || ay < -.5 ? 1 : 0; LOC.d = b(13) || ay > .5 ? 1 : 0;
-      for (const [i, k] of GPm) { const v = b(i) ? 1 : 0; LOC.h[k] = v; if (v && !GPs[i]) pushBtn(k); GPs[i] = v }
-      const s = b(4) ? 1 : 0; if (s && !GPs[4]) LOC.pr.SUP = 1; GPs[4] = s
+      for (const [i, k] of GPm) { const v = b(i) ? 1 : 0; LOC.h[k] = v; if (v && !st[i]) pushBtn(k); st[i] = v }
+      const s = b(4) ? 1 : 0; if (s && !st[4]) LOC.pr.SUP = 1; st[4] = s;
     }
 
     function drawExtra() {
       const myF = (NET.active && NET.side === 2) ? E : P;
       bsupEl.classList.toggle('rdy', canSuper(myF));
-      if (NET.active && ph < 2) {
+      if ((NET.active || LOCAL_VS.active) && ph < 2) {
         X.save(); X.fillStyle = '#fff'; X.strokeStyle = '#000'; X.lineWidth = 3; X.font = 'bold 24px system-ui'; X.textAlign = 'center';
         const t = Math.max(0, Math.ceil(T * STEP_MS / 1000));
         X.strokeText(t, W / 2, 32); X.fillText(t, W / 2, 32); X.restore();
@@ -2962,122 +3210,85 @@
         if (NET.stalled) { acc = Math.min(acc, STEP_MS * 3); break }
         acc -= STEP_MS;
       }
-      pollPad(); X.save(); if (SHK > 0) { X.translate((Math.random() - .5) * SHK * .9, (Math.random() - .5) * SHK * .9); SHK-- } draw(); X.restore(); drawExtra();
-      requestAnimationFrame(loop);
+      pollPad(); X.save(); if (SHK > 0) { X.translate((Math.random() - .5) * SHK * .9, (Math.random() - .5) * SHK * .9); SHK *= .78; if (SHK < .4) SHK = 0 } draw(); drawExtra(); X.restore(); requestAnimationFrame(loop);
     }
-    requestAnimationFrame(t => { last = t; loop(t) });
 
-    function pushBtn(k) {
-      LOC.pr[k] = 1;
-      LOC.buf.push({ b: k, t: 14 });
+    const d = $('d'), k = $('k'); let pid = null;
+    function setStick(cx, cy) {
+      const r = d.getBoundingClientRect(), dx = cx - r.left - r.width / 2, dy = cy - r.top - r.height / 2, m = 42, l = Math.min(m, Math.hypot(dx, dy)), a = Math.atan2(dy, dx), x = Math.cos(a) * l, y = Math.sin(a) * l;
+      k.style.transform = `translate(${x}px,${y}px)`;
+      LOC.l = x < -14; LOC.r = x > 14; LOC.u = y < -16; LOC.d = y > 16;
     }
+    d.addEventListener('pointerdown', e => {
+      if (ph === 2 && !NET.active) { rw = [0, 0]; round(); return }
+      if (ph === 2 && NET.active) { requestNetRematch(); return }
+      pid = e.pointerId; d.setPointerCapture(pid); setStick(e.clientX, e.clientY);
+    });
+    d.addEventListener('pointermove', e => { if (e.pointerId === pid) setStick(e.clientX, e.clientY) });
+    const endStick = e => { if (e.pointerId === pid) { pid = null; k.style.transform = ''; LOC.l = LOC.r = LOC.u = LOC.d = 0 } };
+    d.addEventListener('pointerup', endStick); d.addEventListener('pointercancel', endStick);
+    C.addEventListener('pointerdown', () => {
+      if (ph === 2 && !NET.active) { rw = [0, 0]; round() }
+      else if (ph === 2 && NET.active) { requestNetRematch() }
+    });
+
+    function pushBtn(k) { LOC.pr[k] = 1; LOC.buf.push({ b: k, t: 14 }) }
     function bind(id, fn) {
-      const e = document.getElementById(id);
-      e.addEventListener('pointerdown', v => { v.preventDefault(); e.setPointerCapture(v.pointerId); fn(1); e.classList.add('on') });
-      for (const t of ['pointerup', 'pointercancel']) e.addEventListener(t, () => { fn(0); e.classList.remove('on') });
+      const el = $(id);
+      el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('on'); fn(1) });
+      const off = () => { el.classList.remove('on'); fn(0) };
+      el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off);
     }
-    (() => {
-      const e = document.getElementById('d'), k = document.getElementById('k'); let id = null;
-      function mv(v) {
-        const r = e.getBoundingClientRect(), dx = v.clientX - (r.left + r.width / 2), dy = v.clientY - (r.top + r.height / 2);
-        const L = Math.hypot(dx, dy), m = r.width / 2 - 30, s = L > m ? m / L : 1, z = r.width * .17;
-        k.style.transform = 'translate(' + dx * s + 'px,' + dy * s + 'px)';
-        const vv = Math.abs(dy) > z && Math.abs(dy) > Math.abs(dx) * .55; LOC.l = dx < -z ? 1 : 0; LOC.r = dx > z ? 1 : 0; LOC.u = vv && dy < 0 ? 1 : 0; LOC.d = vv && dy > 0 ? 1 : 0;
-      }
-      function off() { id = null; k.style.transform = ''; LOC.l = LOC.r = LOC.u = LOC.d = 0 }
-      e.addEventListener('pointerdown', v => { v.preventDefault(); id = v.pointerId; e.setPointerCapture(id); mv(v) });
-      e.addEventListener('pointermove', v => { if (v.pointerId === id) mv(v) });
-      for (const t of ['pointerup', 'pointercancel']) e.addEventListener(t, v => { if (v.pointerId === id) off() });
-    })();
-
-    bind('bp', v => { LOC.h.P = v; if (v) pushBtn('P') });
-    bind('bk', v => { LOC.h.K = v; if (v) pushBtn('K') });
-    bind('bs', v => { LOC.h.S = v; if (v) pushBtn('S') });
-    bind('bt', v => { LOC.h.T = v; if (v) pushBtn('T') });
-    bind('be', v => { LOC.h.X = v; if (v) pushBtn('X') });
-    bind('bsys', v => { LOC.h.SYS = v; if (v) pushBtn('SYS') });
-
-    /* オンライン時用の簡易メニューイベント */
-    const bhb = $('bhb');
-    bhb.addEventListener('pointerdown', () => { HB_VIS ^= 1; bhb.textContent = '判定:' + (HB_VIS ? 'ON' : 'OFF'); syncTrainingMenuBtns() });
-    const bfm = $('bfm');
-    bfm.addEventListener('pointerdown', () => { FM_VIS ^= 1; bfm.textContent = 'Fメーター:' + (FM_VIS ? 'ON' : 'OFF'); syncTrainingMenuBtns() });
-    const bsnd = $('bsnd');
-    bsnd.addEventListener('pointerdown', () => { SND ^= 1; bsnd.textContent = '音:' + (SND ? 'ON' : 'OFF'); syncTrainingMenuBtns() });
-
-    /* トレーニングモード設定イベント */
-    $('trnc').addEventListener('pointerdown', () => $('trn').classList.remove('open'));
-    $('tDoReset').addEventListener('pointerdown', () => { resetTrainingPos(0); $('trn').classList.remove('open') });
-    $('tOpenMove').addEventListener('pointerdown', () => { $('trn').classList.remove('open'); renderMoveList(); $('ml').classList.add('open') });
-    $('tOpenOnline').addEventListener('pointerdown', () => { $('trn').classList.remove('open'); openOnlineModal() });
-
-    document.querySelectorAll('[data-c1]').forEach(b => b.addEventListener('pointerdown', () => {
-      cSel[0] = Number(b.dataset.c1); NET.myCid = cSel[0]; setChars(); resetTrainingPos(1);
-    }));
-    document.querySelectorAll('[data-c2]').forEach(b => b.addEventListener('pointerdown', () => {
-      cSel[1] = Number(b.dataset.c2); setChars(); resetTrainingPos(1);
-    }));
-    document.querySelectorAll('[data-pos]').forEach(b => b.addEventListener('pointerdown', () => {
-      TRN.pos = Number(b.dataset.pos); syncTrainingMenuBtns(); resetTrainingPos(0);
-    }));
-    document.querySelectorAll('[data-dum]').forEach(b => b.addEventListener('pointerdown', () => {
-      TRN.dummy = Number(b.dataset.dum);
-      if (TRN.dummy === 5 && TRN.recData.length > 0) { TRN.recState = 2; TRN.recIdx = 0; TRN.recWait = 0; TRN.prev2Rec = 0 }
-      else if (TRN.dummy !== 5 && TRN.recState === 2) { TRN.recState = 0 }
-      syncRecButtons(); syncTrainingMenuBtns();
-    }));
-    document.querySelectorAll('[data-grd]').forEach(b => b.addEventListener('pointerdown', () => {
-      TRN.guard = Number(b.dataset.grd); TRN.guardHitCnt = 0; syncTrainingMenuBtns();
-    }));
-    document.querySelectorAll('[data-rev]').forEach(b => b.addEventListener('pointerdown', () => {
-      TRN.rev = Number(b.dataset.rev); syncTrainingMenuBtns();
-    }));
-    document.querySelectorAll('[data-tch]').forEach(b => b.addEventListener('pointerdown', () => {
-      TRN.tech = Number(b.dataset.tch); syncTrainingMenuBtns();
-    }));
-    document.querySelectorAll('[data-gg]').forEach(b => b.addEventListener('pointerdown', () => {
-      TRN.gaugeMode = Number(b.dataset.gg);
-      if (TRN.gaugeMode >= 1) { P.g = 4; E.g = 4 }
-      syncTrainingMenuBtns();
-    }));
-
-    $('tCntBtn').addEventListener('pointerdown', () => { TRN.counter ^= 1; syncTrainingMenuBtns() });
-    $('tAutoHp').addEventListener('pointerdown', () => { TRN.autoHp ^= 1; syncTrainingMenuBtns() });
-    $('tInfStock').addEventListener('pointerdown', () => {
-      TRN.infStock ^= 1;
-      if (TRN.infStock) { if (P.cid === 2) P.stock = 4; if (E.cid === 2) E.stock = 4 }
-      syncTrainingMenuBtns();
+    for (const [id, k] of [['bp', 'P'], ['bk', 'K'], ['bs', 'S'], ['bt', 'T'], ['be', 'X'], ['bsys', 'SYS']]) {
+      bind(id, v => { LOC.h[k] = v; if (v) pushBtn(k) });
+    }
+    const km = { ArrowLeft: 'l', ArrowRight: 'r', ArrowUp: 'u', ArrowDown: 'd', KeyA: 'l', KeyD: 'r', KeyW: 'u', KeyS: 'd' };
+    const kb = { KeyJ: 'P', KeyK: 'K', KeyL: 'S', KeyU: 'T', KeyI: 'X', KeyO: 'SYS', KeyH: 'SUP', KeyR: 'RESET' };
+    addEventListener('keydown', e => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.repeat) return;
+      if (km[e.code]) LOC[km[e.code]] = 1;
+      if (kb[e.code] === 'RESET') { if (!NET.active && !LOCAL_VS.active) resetTrainingPos(0); return }
+      if (kb[e.code]) { LOC.h[kb[e.code]] = 1; pushBtn(kb[e.code]) }
     });
-    $('tResetMaxDmg').addEventListener('pointerdown', () => {
-      TRN.maxComboDmg = 0; TRN.lastDmg = 0; TRN.lastScale = 100;
-      pop(P, '記録リセット');
-    });
-    $('tRecStart').addEventListener('pointerdown', () => startRecording());
-    $('tRecPlay').addEventListener('pointerdown', () => {
-      if (TRN.recData.length > 0) { stopRecordingAndPlay(); $('trn').classList.remove('open') }
-    });
-    $('tRecLoop').addEventListener('pointerdown', () => { TRN.recLoop ^= 1; syncTrainingMenuBtns() });
-    $('tCtrlSide').addEventListener('pointerdown', () => {
-      TRN.ctrl2P ^= 1;
-      if (TRN.ctrl2P) TRN.recState = 0;
-      syncRecButtons(); syncTrainingMenuBtns();
+    addEventListener('keyup', e => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (km[e.code]) LOC[km[e.code]] = 0;
+      if (kb[e.code] && kb[e.code] !== 'RESET') LOC.h[kb[e.code]] = 0;
     });
 
-    $('tVisHb').addEventListener('pointerdown', () => { HB_VIS ^= 1; bhb.textContent = '判定:' + (HB_VIS ? 'ON' : 'OFF'); syncTrainingMenuBtns() });
-    $('tVisFm').addEventListener('pointerdown', () => { FM_VIS ^= 1; bfm.textContent = 'Fメーター:' + (FM_VIS ? 'ON' : 'OFF'); syncTrainingMenuBtns() });
-    $('tVisKey').addEventListener('pointerdown', () => { TRN.keyLog ^= 1; syncTrainingMenuBtns() });
-    $('tVisInfo').addEventListener('pointerdown', () => { TRN.infoHud ^= 1; syncTrainingMenuBtns() });
-    $('tVisSnd').addEventListener('pointerdown', () => { SND ^= 1; bsnd.textContent = '音:' + (SND ? 'ON' : 'OFF'); syncTrainingMenuBtns() });
+    function toggleHitbox() {
+      HB_VIS = !HB_VIS;
+      $('bhb').textContent = '判定:' + (HB_VIS ? 'ON' : 'OFF');
+      $('tVisHb').textContent = '判定表示:' + (HB_VIS ? 'ON' : 'OFF');
+      $('tVisHb').classList.toggle('sel', !!HB_VIS);
+    }
+    function toggleFrameMeter() {
+      FM_VIS = !FM_VIS;
+      $('bfm').textContent = 'Fメーター:' + (FM_VIS ? 'ON' : 'OFF');
+      $('tVisFm').textContent = 'Fメーター:' + (FM_VIS ? 'ON' : 'OFF');
+      $('tVisFm').classList.toggle('sel', !!FM_VIS);
+    }
+    function toggleSound() {
+      SND = !SND;
+      $('bsnd').textContent = '音:' + (SND ? 'ON' : 'OFF');
+      $('tVisSnd').textContent = '音:' + (SND ? 'ON' : 'OFF');
+      $('tVisSnd').classList.toggle('sel', !!SND);
+    }
+
+    $('bhb').addEventListener('pointerdown', toggleHitbox);
+    $('bfm').addEventListener('pointerdown', toggleFrameMeter);
+    $('bsnd').addEventListener('pointerdown', toggleSound);
 
     function syncTrainingMenuBtns() {
-      document.querySelectorAll('[data-c1]').forEach(b => b.classList.toggle('sel', Number(b.dataset.c1) === cSel[0]));
-      document.querySelectorAll('[data-c2]').forEach(b => b.classList.toggle('sel', Number(b.dataset.c2) === cSel[1]));
-      document.querySelectorAll('[data-pos]').forEach(b => b.classList.toggle('sel', Number(b.dataset.pos) === TRN.pos));
-      document.querySelectorAll('[data-dum]').forEach(b => b.classList.toggle('sel', Number(b.dataset.dum) === TRN.dummy));
-      document.querySelectorAll('[data-grd]').forEach(b => b.classList.toggle('sel', Number(b.dataset.grd) === TRN.guard));
-      document.querySelectorAll('[data-rev]').forEach(b => b.classList.toggle('sel', Number(b.dataset.rev) === TRN.rev));
-      document.querySelectorAll('[data-tch]').forEach(b => b.classList.toggle('sel', Number(b.dataset.tch) === TRN.tech));
-      document.querySelectorAll('[data-gg]').forEach(b => b.classList.toggle('sel', Number(b.dataset.gg) === TRN.gaugeMode));
+      document.querySelectorAll('#tC1Row .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.c1) === cSel[0]));
+      document.querySelectorAll('#tC2Row .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.c2) === cSel[1]));
+      document.querySelectorAll('#tPosRow .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.pos) === TRN.pos));
+      document.querySelectorAll('#tDummyRow .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.dum) === TRN.dummy));
+      document.querySelectorAll('#tGuardRow .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.grd) === TRN.guard));
+      document.querySelectorAll('#tRevRow .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.rev) === TRN.rev));
+      document.querySelectorAll('#tTechRow .obtn[data-tch]').forEach(b => b.classList.toggle('sel', Number(b.dataset.tch) === TRN.tech));
+      document.querySelectorAll('#tGaugeRow .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.gg) === TRN.gaugeMode));
 
       $('tCntBtn').textContent = '強制パニッシュ:' + (TRN.counter ? 'ON' : 'OFF');
       $('tCntBtn').classList.toggle('sel', !!TRN.counter);
@@ -3089,7 +3300,6 @@
       $('tRecLoop').classList.toggle('sel', !!TRN.recLoop);
       $('tCtrlSide').textContent = '操作対象:' + (TRN.ctrl2P ? '2P' : '1P');
       $('tCtrlSide').classList.toggle('sel', !!TRN.ctrl2P);
-
       $('tVisHb').textContent = '判定表示:' + (HB_VIS ? 'ON' : 'OFF');
       $('tVisHb').classList.toggle('sel', !!HB_VIS);
       $('tVisFm').textContent = 'Fメーター:' + (FM_VIS ? 'ON' : 'OFF');
@@ -3103,229 +3313,390 @@
       syncRecButtons();
     }
 
+    $('trnc').addEventListener('pointerdown', () => $('trn').classList.remove('open'));
+    $('tDoReset').addEventListener('pointerdown', () => { resetTrainingPos(0); $('trn').classList.remove('open') });
+    $('tOpenMove').addEventListener('pointerdown', () => { $('trn').classList.remove('open'); renderMoveList(); $('ml').classList.add('open') });
+    $('tOpenOnline').addEventListener('pointerdown', () => { $('trn').classList.remove('open'); openOnlineModal() });
+
+    document.querySelectorAll('#tC1Row .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { cSel[0] = Number(btn.dataset.c1); setChars(); resetTrainingPos(1) });
+    });
+    document.querySelectorAll('#tC2Row .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { cSel[1] = Number(btn.dataset.c2); setChars(); resetTrainingPos(1) });
+    });
+    document.querySelectorAll('#tPosRow .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { TRN.pos = Number(btn.dataset.pos); syncTrainingMenuBtns(); resetTrainingPos(1) });
+    });
+    document.querySelectorAll('#tDummyRow .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => {
+        TRN.dummy = Number(btn.dataset.dum);
+        if (TRN.dummy === 5 && TRN.recData.length > 0) {
+          TRN.recState = 2; TRN.recIdx = 0; TRN.recWait = 0; TRN.prev2Rec = 0;
+        } else if (TRN.dummy !== 5 && TRN.recState === 2) {
+          TRN.recState = 0;
+        }
+        syncTrainingMenuBtns();
+      });
+    });
+    document.querySelectorAll('#tGuardRow .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { TRN.guard = Number(btn.dataset.grd); TRN.guardHitCnt = 0; syncTrainingMenuBtns() });
+    });
+    document.querySelectorAll('#tRevRow .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { TRN.rev = Number(btn.dataset.rev); syncTrainingMenuBtns() });
+    });
+    document.querySelectorAll('#tTechRow .obtn[data-tch]').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { TRN.tech = Number(btn.dataset.tch); syncTrainingMenuBtns() });
+    });
+    $('tCntBtn').addEventListener('pointerdown', () => { TRN.counter = TRN.counter ? 0 : 1; syncTrainingMenuBtns() });
+    $('tRecStart').addEventListener('pointerdown', startRecording);
+    $('tRecPlay').addEventListener('pointerdown', () => { if (TRN.recData.length > 0) { stopRecordingAndPlay(); $('trn').classList.remove('open') } });
+    $('tRecLoop').addEventListener('pointerdown', () => { TRN.recLoop = TRN.recLoop ? 0 : 1; syncTrainingMenuBtns() });
+    $('tCtrlSide').addEventListener('pointerdown', () => { TRN.ctrl2P = TRN.ctrl2P ? 0 : 1; if (TRN.ctrl2P && TRN.recState === 2) TRN.recState = 0; syncTrainingMenuBtns() });
+    $('tAutoHp').addEventListener('pointerdown', () => { TRN.autoHp = TRN.autoHp ? 0 : 1; syncTrainingMenuBtns() });
+    $('tInfStock').addEventListener('pointerdown', () => {
+      TRN.infStock = TRN.infStock ? 0 : 1;
+      if (TRN.infStock) { if (P.cid === 2) P.stock = 4; if (E.cid === 2) E.stock = 4 }
+      syncTrainingMenuBtns();
+    });
+    $('tResetMaxDmg').addEventListener('pointerdown', () => { TRN.maxComboDmg = 0; TRN.lastDmg = 0; TRN.lastScale = 100; pop(P, '記録リセット') });
+    document.querySelectorAll('#tGaugeRow .obtn').forEach(btn => {
+      btn.addEventListener('pointerdown', () => { TRN.gaugeMode = Number(btn.dataset.gg); if (TRN.gaugeMode >= 1) { P.g = 4; E.g = 4 } syncTrainingMenuBtns() });
+    });
+    $('tVisHb').addEventListener('pointerdown', toggleHitbox);
+    $('tVisFm').addEventListener('pointerdown', toggleFrameMeter);
+    $('tVisKey').addEventListener('pointerdown', () => { TRN.keyLog = TRN.keyLog ? 0 : 1; syncTrainingMenuBtns() });
+    $('tVisInfo').addEventListener('pointerdown', () => { TRN.infoHud = TRN.infoHud ? 0 : 1; syncTrainingMenuBtns() });
+    $('tVisSnd').addEventListener('pointerdown', toggleSound);
+
     function renderMoveList() {
-      const idx = (NET.active && NET.side === 2) ? 1 : (TRN.ctrl2P ? 1 : 0);
-      const C0 = CHARS[cSel[idx]], M = C0.M;
-      document.getElementById('mlt').textContent = C0.name + '（' + C0.role + '）';
+      const c = CHARS[cSel[0]];
       const rows = [
-        ['N（正面）', M.NP.n + (C0.chKey === 'NP' ? ' / 【タメ】' + M[C0.chTo].n : ''), M.NK.n, M.NS.n + (C0.chKey === 'NS' ? ' / 【タメ】' + M[C0.chTo].n : '')],
-        ['→（前）', M.FP.n, M.FK.n, M.FS.n],
-        ['↓（下）', M.DP.n, M.DK.n, M.DS.n],
-        ['←（後）', M.BP.n, M.BK.n, M.BS.n],
-        ['空中（ジャンプ中）', M.JP.n + '（中段・高威力・狭判定）', M.JK.n + '（中段・低威力・前後広判定）', '—']
+        ['5P / 6P / 2P / 4P', `${c.M.NP.n} / ${c.M.FP.n} / ${c.M.DP.n} / ${c.M.BP.n}`],
+        ['5K / 6K / 2K / 4K', `${c.M.NK.n} / ${c.M.FK.n} / ${c.M.DK.n} / ${c.M.BK.n}`],
+        ['空中で P / K', `${c.M.JP.n} / ${c.M.JK.n}（中段・着地まで1回）`],
+        ['5SP', `${c.M.NS.n}（最大タメ30Fで「${c.M[c.chTo].n}」）`],
+        ['6SP / 2SP / 4SP', `${c.M.FS.n} / ${c.M.DS.n} / ${c.M.BS.n}`],
+        ['EX（1本消費）', `${c.M.XN.n} / ${c.M.XF.n} / ${c.M.XD.n} / ${c.M.XB.n}（SP+P/Kでも可）`],
+        ['ガードブレイク', `6+S（0.25本）：${c.M.GB.n}（ガード不能化）`],
+        ['無敵切り返し', `ガード硬直/ダウン中に 4+S（1本消費・完全無敵）`],
+        ['投げ / 抜け', `投げ(またはP+K) / 掴まれた瞬間に投げ or P+K`],
+        ['超必殺技（全消費）', `ゲージ満タン時に EX+SP / EX+S / 画面下ボタン（18秒CD）`]
       ];
-      let html = '<table><tr><th>方向</th><th>P</th><th>K</th><th>SP</th></tr>';
-      for (const r of rows) {
-        html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>';
-      }
-      html += '</table><table><tr><th>共通・特殊操作</th><th>コマンド</th><th>効果</th></tr>';
-      html += '<tr><td>EX技 / EXキャンセル</td><td>方向 + EX (1本)</td><td>単発発動／通常技・必殺技のヒットorガード中にキャンセル可</td></tr>';
-      html += '<tr><td>弾の強度・相殺</td><td>飛び道具同士が接触</td><td>通常弾 ＜ タメ弾 ＝ EX弾 ＜ 超必殺ビーム（弱い弾は消滅・同強度は相殺／特殊ブーメランは画面何個でも存在可）</td></tr>';
-      html += '<tr><td>ガードブレイク</td><td>→ + S (0.25本)</td><td>' + C0.gbName + '（ガード時60Fブレイク）</td></tr>';
-      html += '<tr><td>無敵切り返し</td><td>← + S (1本)</td><td>ガード硬直・ダウン中限定／ダメージ0で距離リセット</td></tr>';
-      html += '<tr><td>バックステップ</td><td>← ←</td><td>1〜4F完全無敵（打撃・弾・投げ）</td></tr>';
-      html += '<tr><td>通常投げ / 抜け</td><td>P + K（or 投げ）</td><td>1000ダメージ／10F以内入力で投げ抜け</td></tr>';
-      html += '<tr><td>めくり / 背後ガード</td><td>弾・攻撃の進行方向へ入力</td><td>ブーメラン等が背後から来る場合は前(→)入力でガード</td></tr>';
-      html += '<tr><td>超必殺技</td><td>EX+SP / EX+S / SP+P+K (4本)</td><td>' + C0.superName + '（ゲージ欄タップでも発動／発動後クールダウンあり）</td></tr></table>';
-      document.getElementById('mlb').innerHTML = html;
+      if (c.id === 0) rows.push(['ターゲットコンボ', '2P → P → P / 2P → K']);
+      if (c.id === 1) rows.push(['特殊派生', '2P→P→P / 4SP(ダッシュスルー)中 P:中段・K:下段']);
+      if (c.id === 2) rows.push(['特殊弾ストック', '5SPで弾をストック(最大4)。6SPで発射（EXは消費なし）']);
+      $('mlt').textContent = `技表：${c.name}（${c.role}）`;
+      $('mlb').innerHTML = `<table><tr><th>コマンド</th><th>技名・効果</th></tr>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join('')}</table><div style="font-size:12px;color:#b8bfd8;line-height:1.6">・相手の背後へ飛んだ弾は「相手側（右）」へレバーを入れるとガード可能。<br>・コンボ補正：100% → 80% → 60% → 40% → 20% → 6段目で強制ダウン（0%）。<br>・キーボード：WASD/矢印移動, J=P, K=K, L=SP, U=投げ, I=EX, O=S, H=超必殺, R=リセット</div>`;
     }
-    document.getElementById('bml').addEventListener('pointerdown', () => { renderMoveList(); document.getElementById('ml').classList.add('open') });
-    document.getElementById('mlc').addEventListener('pointerdown', () => document.getElementById('ml').classList.remove('open'));
-    renderMoveList();
+    $('bml').addEventListener('pointerdown', () => { renderMoveList(); $('ml').classList.add('open'); $('tb').classList.remove('open') });
+    $('mlc').addEventListener('pointerdown', () => $('ml').classList.remove('open'));
 
     function openOnlineModal() {
       $('tb').classList.remove('open');
       $('trn').classList.remove('open');
-      syncLobbyCharBtns();
       $('onl').classList.add('open');
+      if (!NET.active) {
+        updateModeUI();
+      }
+      refreshLocal2PStatus();
     }
     $('bonlBtn').addEventListener('pointerdown', e => { e.stopPropagation(); openOnlineModal() });
-    $('bonlMenu').addEventListener('pointerdown', () => openOnlineModal());
+    $('bonlMenu').addEventListener('pointerdown', openOnlineModal);
     $('onlc').addEventListener('pointerdown', () => $('onl').classList.remove('open'));
 
-    function syncLobbyCharBtns() {
-      document.querySelectorAll('#oCharRow .obtn').forEach(btn => {
-        btn.classList.toggle('sel', Number(btn.dataset.cid) === NET.myCid);
-      });
+    function refreshLocal2PStatus() {
+      const el = $('l2pPadStatus');
+      if (!el) return;
+      const pads = getConnectedPads();
+      el.textContent = '検出パッド数：' + pads.length + '台（コントローラー2個で1P/2P操作可能）';
     }
+    $('l2pStartBtn').addEventListener('pointerdown', startLocal2P);
+    $('l2pStopBtn').addEventListener('pointerdown', () => stopLocal2P(0));
+
     document.querySelectorAll('#oCharRow .obtn').forEach(btn => {
       btn.addEventListener('pointerdown', () => {
+        document.querySelectorAll('#oCharRow .obtn').forEach(b => b.classList.remove('sel'));
+        btn.classList.add('sel');
         NET.myCid = Number(btn.dataset.cid);
-        syncLobbyCharBtns();
         if (!NET.active) { cSel[0] = NET.myCid; setChars(); resetTrainingPos(1) }
       });
     });
-    document.querySelectorAll('[data-dly]').forEach(btn => {
+
+    document.querySelectorAll('#oDlyRow .obtn').forEach(btn => {
       btn.addEventListener('pointerdown', () => {
+        document.querySelectorAll('#oDlyRow .obtn').forEach(b => b.classList.remove('sel'));
+        btn.classList.add('sel');
         NET.delay = Number(btn.dataset.dly);
-        document.querySelectorAll('[data-dly]').forEach(b => b.classList.toggle('sel', b === btn));
       });
     });
 
-    function bindConnEvents(conn, isHost) {
+    const netWsUrlInp = $('netWsUrlInp');
+    try {
+      const savedUrl = localStorage.getItem('fgt2d_net_ws_url');
+      netWsUrlInp.value = savedUrl !== null ? savedUrl : DEFAULT_NET_WS_URL;
+    } catch (e) {
+      netWsUrlInp.value = DEFAULT_NET_WS_URL;
+    }
+    netWsUrlInp.addEventListener('input', () => {
+      try { localStorage.setItem('fgt2d_net_ws_url', netWsUrlInp.value.trim()) } catch (e) { }
+    });
+
+    function cleanupPendingConnections() {
+      if (NET.connIn) { try { NET.connIn.close() } catch (e) { } NET.connIn = null }
+      if (NET.conn) { try { NET.conn.close() } catch (e) { } NET.conn = null }
+      if (NET.ws) { try { NET.ws.close() } catch (e) { } NET.ws = null }
+      if (NET.peer) { try { NET.peer.destroy() } catch (e) { } NET.peer = null }
+    }
+
+    function bindNetConn(conn, isHost) {
       NET.conn = conn;
       conn.on('open', () => {
+        if (NET.mode !== 'cable' && NET.mode !== 'ws') NET.mode = 'auto';
+        detectRoute();
         startNetPing();
-        setTimeout(detectRoute, 2500); setTimeout(detectRoute, 9000);
-        if (!isHost) {
-          updateModeUI('接続成功！対戦開始を同期中...');
+        if (isHost) {
+          updateModeUI('相手とつながりました！対戦を開始します...');
+        } else {
           sendNet({ t: 'hello', cid: NET.myCid, dly: NET.delay });
         }
       });
       conn.on('data', msg => {
         if (!msg || typeof msg !== 'object') return;
+        if (msg.t === 'in' || msg.t === 'ping' || msg.t === 'pong') { onInMsg(msg); return }
         if (msg.t === 'hello' && isHost) {
-          const dly = Math.max(2, Math.min(6, Math.max(NET.delay, msg.dly || 3)));
-          const cid1 = NET.myCid, cid2 = Number(msg.cid) || 0;
-          const mid = newMid(); sendNet({ t: 'start', cid1, cid2, dly, mid });
-          startNetMatch(1, cid1, cid2, dly, mid);
-        } else if (msg.t === 'start' && !isHost) {
-          startNetMatch(2, msg.cid1, msg.cid2, msg.dly, msg.mid);
-        } else if (msg.t === 'in' || msg.t === 'ping' || msg.t === 'pong') {
-          onInMsg(msg);
-        } else if (msg.t === 'rematch' && NET.active) {
+          const dly = Math.max(NET.delay, Number(msg.dly) || 0);
+          const mid = newMid();
+          sendNet({ t: 'start', c1: NET.myCid, c2: Number(msg.cid) || 0, dly, mid });
+          startNetMatch(1, NET.myCid, Number(msg.cid) || 0, dly, mid);
+          return;
+        }
+        if (msg.t === 'start' && !isHost) {
+          startNetMatch(2, Number(msg.c1) || 0, Number(msg.c2) || 0, Number(msg.dly) || 1, Number(msg.mid) || 1);
+          return;
+        }
+        if (msg.t === 'rematch_req') {
           NET.rematchPeer = 1;
-          if (isHost) {
-            if (NET.rematchSelf) {
-              const dly = NET.delay, cid1 = NET.myCid, cid2 = cSel[1];
-              const mid = newMid(); sendNet({ t: 'start', cid1, cid2, dly, mid });
-              startNetMatch(1, cid1, cid2, dly, mid);
-            } else {
-              pop(E, '相手が再戦を希望！');
-              updateModeUI('相手が再戦を希望しています（「もう1戦」で開始）');
+          if (NET.rematchSelf) {
+            if (NET.side === 1) {
+              const mid = newMid();
+              sendNet({ t: 'rematch_go', c1: cSel[0], c2: cSel[1], dly: NET.delay, mid });
+              startNetMatch(1, cSel[0], cSel[1], NET.delay, mid);
             }
           } else {
-            pop(P, '相手が再戦を希望！');
-            updateModeUI('相手が再戦を希望しています（「もう1戦」で開始）');
+            msg = '相手が再戦を希望（画面タップで承諾）';
           }
+          return;
+        }
+        if (msg.t === 'rematch_go') {
+          startNetMatch(NET.side, Number(msg.c1) || 0, Number(msg.c2) || 0, Number(msg.dly) || NET.delay, Number(msg.mid) || 1);
+          return;
         }
       });
-      conn.on('close', () => stopNetMatch('相手との通信が切断されました'));
-      conn.on('error', () => stopNetMatch('通信エラーが発生しました'));
+      conn.on('close', () => { if (NET.active) stopNetMatch('相手との通信が切断されました') });
+      conn.on('error', () => { if (NET.active) stopNetMatch('通信エラーで切断されました') });
     }
 
-    function createHostRoom(retryCount) {
-      if (typeof Peer === 'undefined') {
-        updateModeUI('通信ライブラリの読み込みに失敗しました。ネット接続を確認してください。');
+    function connectViaWsQuick(wsUrl, cableMode) {
+      cleanupPendingConnections();
+      NET.mode = cableMode ? 'cable' : 'ws';
+      if (cableMode) {
+        NET.delay = 0;
+        document.querySelectorAll('#oDlyRow .obtn').forEach(b => b.classList.toggle('sel', Number(b.dataset.dly) === 0));
+      }
+      updateModeUI(cableMode ? 'Type-C直結サーバーへ接続中...' : 'マッチングサーバーへ接続中...');
+
+      let ws;
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (e) {
+        updateModeUI('WebSocket接続エラー：サーバーURLを確認してください');
         return;
       }
-      stopNetMatch();
-      const code = String(1000 + Math.floor(Math.random() * 9000));
-      const peerId = 'fg2d-jp-v1-' + code;
-      NET.room = code;
-      updateModeUI('部屋を作成中...');
-      const peer = new Peer(peerId);
-      NET.peer = peer;
-      peer.on('open', () => {
-        $('oRoomCode').textContent = code;
-        $('oRoomCode').style.display = 'inline-block';
-        $('oCopyBtn').style.display = 'inline-block';
-        $('oDiscBtn').style.display = 'inline-block';
-        updateModeUI('待機中... 合言葉【 ' + code + ' 】を相手に入力してもらってください');
-      });
-      peer.on('connection', conn => {
-        if (conn.metadata && conn.metadata.kind === 'in') { bindInConn(conn); return }
-        if (NET.conn) { try { conn.close() } catch (e) { } return }
-        bindConnEvents(conn, true);
-      });
-      peer.on('error', err => {
-        if (err && err.type === 'unavailable-id' && (retryCount || 0) < 5) {
-          createHostRoom((retryCount || 0) + 1);
+      NET.ws = ws;
+      let myRole = 0;
+
+      const wrap = {
+        get open() { return ws && ws.readyState === 1 },
+        send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)) },
+        close() { try { ws.close() } catch (e) { } }
+      };
+      NET.conn = wrap;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ t: 'quick' }));
+      };
+      ws.onmessage = ev => {
+        let m;
+        try { m = JSON.parse(ev.data) } catch (e) { return }
+        if (!m || typeof m !== 'object') return;
+
+        if (m.t === 'waiting') {
+          updateModeUI(cableMode
+            ? 'Type-C接続待機中... もう1台の端末でURLを開くと自動開始します'
+            : '対戦相手を自動検索中... 友達が「ネット対戦」を押すと即開始します');
+          return;
+        }
+        if (m.t === 'joined') {
+          myRole = Number(m.role) || 1;
+          if (myRole === 2) {
+            startNetPing();
+            wrap.send({ t: 'hello', cid: NET.myCid, dly: NET.delay });
+          }
+          return;
+        }
+        if (m.t === 'peer_joined') {
+          startNetPing();
+          updateModeUI('相手を発見！対戦を開始します...');
+          return;
+        }
+        if (m.t === 'peer_left') {
+          if (NET.active) stopNetMatch('相手が切断しました');
+          return;
+        }
+        if (m.t === 'in' || m.t === 'ping' || m.t === 'pong') {
+          onInMsg(m);
+          return;
+        }
+        if (m.t === 'hello' && myRole === 1) {
+          const dly = cableMode ? 0 : Math.max(NET.delay, Number(m.dly) || 0);
+          const mid = newMid();
+          wrap.send({ t: 'start', c1: NET.myCid, c2: Number(m.cid) || 0, dly, mid });
+          startNetMatch(1, NET.myCid, Number(m.cid) || 0, dly, mid);
+          return;
+        }
+        if (m.t === 'start' && myRole === 2) {
+          startNetMatch(2, Number(m.c1) || 0, Number(m.c2) || 0, Number(m.dly) || 0, Number(m.mid) || 1);
+          return;
+        }
+        if (m.t === 'rematch_req') {
+          NET.rematchPeer = 1;
+          if (NET.rematchSelf && NET.side === 1) {
+            const mid = newMid();
+            wrap.send({ t: 'rematch_go', c1: cSel[0], c2: cSel[1], dly: NET.delay, mid });
+            startNetMatch(1, cSel[0], cSel[1], NET.delay, mid);
+          } else {
+            msg = '相手が再戦を希望（画面タップで承諾）';
+          }
+          return;
+        }
+        if (m.t === 'rematch_go') {
+          startNetMatch(NET.side, Number(m.c1) || 0, Number(m.c2) || 0, Number(m.dly) || NET.delay, Number(m.mid) || 1);
+          return;
+        }
+      };
+      ws.onclose = () => {
+        if (NET.active) stopNetMatch('サーバーから切断されました');
+        else if (NET.ws === ws) updateModeUI('接続が終了しました（ローカルサーバーが起動しているか確認してください）');
+      };
+      ws.onerror = () => {
+        if (cableMode) {
+          updateModeUI('Type-Cサーバーに接続できません。ws_server_2.js が起動しているか確認してください。');
         } else {
-          stopNetMatch('部屋作成エラー: ' + (err.type || '接続失敗'));
+          updateModeUI('サーバー接続エラー：URLを確認してください');
+        }
+      };
+    }
+
+    function startNetQuickMatch() {
+      const customWs = (netWsUrlInp.value || '').trim();
+      if (customWs) {
+        connectViaWsQuick(customWs, false);
+        return;
+      }
+
+      if (typeof Peer === 'undefined') {
+        updateModeUI('PeerJSの読み込みに失敗しました。通信環境を確認してください。');
+        return;
+      }
+
+      cleanupPendingConnections();
+      NET.mode = 'auto';
+      updateModeUI('対戦相手を探しています（番号入力は不要です）...');
+
+      const hostPeer = new Peer(QUICK_LOBBY_PEER_ID, { debug: 0 });
+      NET.peer = hostPeer;
+
+      hostPeer.on('open', () => {
+        updateModeUI('マッチング待機中... 相手が「ネット対戦」を押すと自動で始まります！');
+      });
+
+      hostPeer.on('connection', conn => {
+        if (conn.label === 'in') { bindInConn(conn); return }
+        if (NET.conn && NET.conn.open) { conn.close(); return }
+        bindNetConn(conn, true);
+      });
+
+      hostPeer.on('error', err => {
+        if (err && err.type === 'unavailable-id') {
+          try { hostPeer.destroy() } catch (e) { }
+          updateModeUI('待機中の相手を発見！自動接続しています...');
+
+          const guestPeer = new Peer({ debug: 0 });
+          NET.peer = guestPeer;
+          guestPeer.on('open', () => {
+            const cMain = guestPeer.connect(QUICK_LOBBY_PEER_ID, { reliable: true, serialization: 'json', label: 'main' });
+            const cIn = guestPeer.connect(QUICK_LOBBY_PEER_ID, { reliable: false, serialization: 'json', label: 'in' });
+            bindInConn(cIn);
+            bindNetConn(cMain, false);
+          });
+          guestPeer.on('error', e2 => {
+            updateModeUI('接続に失敗しました（' + (e2.type || e2) + '）。もう一度押してください。');
+          });
+        } else {
+          updateModeUI('通信エラー（' + (err.type || err) + '）。もう一度ボタンを押してください。');
         }
       });
     }
 
-    $('oHostBtn').addEventListener('pointerdown', () => createHostRoom(0));
-    $('oCopyBtn').addEventListener('pointerdown', () => {
-      if (navigator.clipboard && NET.room) {
-        navigator.clipboard.writeText(NET.room).then(() => {
-          $('oCopyBtn').textContent = 'コピー済!';
-          setTimeout(() => { $('oCopyBtn').textContent = 'コピー' }, 1500);
-        }).catch(() => { });
-      }
-    });
+    function startCableQuickMatch() {
+      const locHost = location.hostname || 'localhost';
+      const locPort = location.port || '8080';
+      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const defaultCableUrl = (location.protocol === 'file:')
+        ? 'ws://localhost:8080'
+        : `${wsProto}//${locHost}:${locPort}`;
+      connectViaWsQuick(defaultCableUrl, true);
+    }
 
-    $('oJoinBtn').addEventListener('pointerdown', () => {
-      if (typeof Peer === 'undefined') {
-        updateModeUI('通信ライブラリの読み込みに失敗しました。');
-        return;
-      }
-      const code = ($('oJoinInp').value || '').replace(/\D/g, '').slice(0, 4);
-      if (code.length !== 4) {
-        updateModeUI('4桁の数字を入力してください');
-        return;
-      }
-      stopNetMatch();
-      updateModeUI('合言葉【 ' + code + ' 】の部屋に接続中...');
-      $('oDiscBtn').style.display = 'inline-block';
-      const peer = new Peer();
-      NET.peer = peer;
-      peer.on('open', () => {
-        const conn = peer.connect('fg2d-jp-v1-' + code, { reliable: true });
-        bindConnEvents(conn, false);
-        const cin = peer.connect('fg2d-jp-v1-' + code, { reliable: false, serialization: 'json', metadata: { kind: 'in' } });
-        bindInConn(cin);
-      });
-      peer.on('error', err => {
-        stopNetMatch('接続失敗（合言葉が違うか部屋が閉じています）');
-      });
-    });
+    $('btnNetQuick').addEventListener('pointerdown', startNetQuickMatch);
+    $('btnCableQuick').addEventListener('pointerdown', startCableQuickMatch);
 
-    function requestRematch() {
+    function requestNetRematch() {
       if (!NET.active) return;
       NET.rematchSelf = 1;
-      sendNet({ t: 'rematch' });
-      if (NET.side === 1 && NET.rematchPeer) {
-        const dly = NET.delay, cid1 = NET.myCid, cid2 = cSel[1];
-        const mid = newMid(); sendNet({ t: 'start', cid1, cid2, dly, mid });
-        startNetMatch(1, cid1, cid2, dly, mid);
+      sendNet({ t: 'rematch_req' });
+      if (NET.rematchPeer) {
+        if (NET.side === 1) {
+          const mid = newMid();
+          sendNet({ t: 'rematch_go', c1: cSel[0], c2: cSel[1], dly: NET.delay, mid });
+          startNetMatch(1, cSel[0], cSel[1], NET.delay, mid);
+        } else {
+          msg = 'ホストの開始を待機中...';
+        }
       } else {
-        pop(NET.side === 1 ? P : E, '再戦リクエスト送信');
-        updateModeUI('相手の再戦応答を待っています...');
+        msg = '再戦リクエスト送信済み（相手待ち）';
       }
     }
 
-    $('oRematchBtn').addEventListener('pointerdown', () => requestRematch());
-    $('oDiscBtn').addEventListener('pointerdown', () => stopNetMatch('切断しました（トレーニングモード）'));
-
-    const KM = { ArrowLeft: 'l', a: 'l', ArrowRight: 'r', d: 'r', ArrowUp: 'u', w: 'u', ArrowDown: 'd', s: 'd' };
-    const KB = { j: 'P', z: 'P', k: 'K', x: 'K', l: 'S', c: 'S', u: 'T', v: 'T', i: 'X', b: 'X', o: 'SYS', n: 'SYS', Enter: 'SUP', ' ': 'SUP' };
-    addEventListener('keydown', e => {
-      if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
-      if (!NET.active && (e.key === 'r' || e.key === 'R' || e.key === 'Backspace')) {
-        resetTrainingPos(0); return;
-      }
-      if (KM[e.key]) LOC[KM[e.key]] = 1;
-      else if (KB[e.key] && !e.repeat) {
-        const k = KB[e.key];
-        LOC.h[k] = 1;
-        if (k === 'SUP') LOC.pr.SUP = 1;
-        else pushBtn(k);
-      }
-    });
-    addEventListener('keyup', e => {
-      if (KM[e.key]) LOC[KM[e.key]] = 0;
-      else if (KB[e.key]) LOC.h[KB[e.key]] = 0;
+    $('oRematchBtn').addEventListener('pointerdown', () => { $('onl').classList.remove('open'); requestNetRematch() });
+    $('oDiscBtn').addEventListener('pointerdown', () => {
+      if (LOCAL_VS.active) stopLocal2P(0);
+      else stopNetMatch();
     });
 
-    C.addEventListener('pointerdown', e => {
-      if (NET.active) {
-        if (ph === 2) { requestRematch(); return }
-        const r = C.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * 360 / r.height;
-        const myF = NET.side === 2 ? E : P;
-        const hitBox = NET.side === 2 ? (x > W - 210 && x < W - 10 && y > 54 && y < 90) : (x > 10 && x < 210 && y > 54 && y < 90);
-        if (canSuper(myF) && ph === 0 && cutT === 0 && hitBox) LOC.pr.SUP = 1;
-        return;
-      }
-      const r = C.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * 360 / r.height;
-      if (canSuper(P) && ph === 0 && cutT === 0 && x > 10 && x < 210 && y > 54 && y < 90) { LOC.pr.SUP = 1; return }
-    });
-
-    /* 初期起動：トレーニングモード開始 */
+    setChars();
     resetTrainingPos(1);
     updateModeUI();
+    requestAnimationFrame(loop);
+
+    try {
+      const autoMode = new URLSearchParams(location.search).get('auto');
+      if (autoMode === 'local') {
+        setTimeout(() => startCableQuickMatch(), 150);
+      } else if (autoMode === 'net') {
+        setTimeout(() => startNetQuickMatch(), 150);
+      }
+    } catch (e) { }
   </script>
 </body>
 
