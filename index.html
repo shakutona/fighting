@@ -610,6 +610,8 @@
 
   <script>
     // 外部WebSocketサーバー（Render等）のURLを固定したい場合はここに記述（例: 'wss://my-game.onrender.com'）
+    // ★GitHub Pages から遊ぶ場合は、ここに Render の URL を書いておくと自動でそのサーバーに接続します。
+    //   例: 'wss://your-app-name.onrender.com'   （空欄なら従来どおり。URLパラメータ ?ws=wss://... でも指定可能）
     const DEFAULT_NET_WS_URL = '';
     const QUICK_LOBBY_PEER_ID = 'fgt2d-quick-match-lobby-v1';
 
@@ -618,9 +620,25 @@
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
-    const MAX_ROLLBACK_FRAMES = 12;
+    const MAX_ROLLBACK_FRAMES = 16;   // 未確定フレームの上限（超えると相手待ちで停止）
+    const NET_KEEP = 240;             // 確定済み入力の保持フレーム数（ズレ修復の再計算用）
+    const CHK_INTERVAL = 20;          // 状態チェックサムを交換する間隔（フレーム＝約0.4秒）
 
     let IS_ROLLBACK = 0;
+
+    /* ---- 決定論的な数学関数 ----
+       Math.sin/cos/atan2/hypot は端末(PC/iPhone/Android)やブラウザによって
+       最下位ビットが違うことがあり、対戦ロジックで使うと少しずつ状態がズレる原因になる。
+       四則演算・Math.round・Math.sqrt は IEEE 754 で結果が一意に決まるので、これだけで実装する。 */
+    const D_PI = 3.141592653589793, D_2PI = 6.283185307179586, D_HPI = 1.5707963267948966;
+    function dsin(x) {
+      x = x - D_2PI * Math.round(x / D_2PI);
+      if (x > D_HPI) x = D_PI - x; else if (x < -D_HPI) x = -D_PI - x;
+      const x2 = x * x;
+      return x * (1 + x2 * (-1 / 6 + x2 * (1 / 120 + x2 * (-1 / 5040 + x2 * (1 / 362880 + x2 * (-1 / 39916800 + x2 * (1 / 6227020800 + x2 * (-1 / 1307674368000))))))));
+    }
+    function dcos(x) { return dsin(x + D_HPI) }
+    function dhyp(a, b) { return Math.sqrt(a * a + b * b) }
 
     let AC = null, SND = 1, HB_VIS = 1, FM_VIS = 1;
     function se(type) {
@@ -828,7 +846,12 @@
       waitFrames: 0,
       connIn: null, hist: new Map(), peerAck: -1, mid: 0, stalled: 0,
       rtt: 0, route: '', pingTimer: 0,
-      ws: null
+      ws: null,
+      sentUpTo: -1,                       // 信頼性のある回線(WS)で送信済みの最終フレーム
+      epoch: 0, myChk: new Map(), peerChk: new Map(), chkSnaps: new Map(),
+      desyncCount: 0, resyncCount: 0,     // ズレ検出回数 / 修復回数
+      lead: 0, slow: 0,                   // 相手に対する先行フレーム数 / 速度補正
+      noResync: 0                         // テスト用：1で自動修復を無効化
     };
 
     function serializeFighter(p) {
@@ -909,7 +932,7 @@
         prev2: NET.prev2,
         ph, pt, msg, rw: [rw[0], rw[1]],
         FR, pnT, cutT, cutTxt, cutCol, T, HS, SHK, SID,
-        FM: {
+        FM: NET.active ? null : {
           max: FM.max,
           p: FM.p.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl })),
           e: FM.e.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl })),
@@ -1044,7 +1067,7 @@
 
     function startNetPing() {
       clearInterval(NET.pingTimer);
-      NET.pingTimer = setInterval(() => sendIn({ t: 'ping', ts: performance.now() }), 1000);
+      NET.pingTimer = setInterval(() => sendIn({ t: 'ping', ts: performance.now() }), 500);
     }
 
     function detectRoute() {
@@ -1074,7 +1097,10 @@
       const target = NET.simFr + NET.delay;
       const myMap = NET.side === 1 ? NET.in1 : NET.in2;
       const peerMap = NET.side === 1 ? NET.in2 : NET.in1;
-      const bits = packLocalBits(LOC);
+      // 1フレーム未満のタップも取りこぼさない（押して離す間に次フレームが来ない場合）
+      const bits = packLocalBits(LOC) | (LOC.tapBits | 0);
+      LOC.tapBits = 0;
+      LOC.buf.length = 0;
       while (NET.locSentUpTo < target) {
         NET.locSentUpTo++;
         myMap.set(NET.locSentUpTo, bits);
@@ -1089,14 +1115,19 @@
       for (const k of NET.hist.keys()) {
         if (k <= NET.peerAck) NET.hist.delete(k); else break;
       }
-      const from = Math.max(NET.delay, NET.peerAck + 1, NET.locSentUpTo - 63);
+      // WebSocket/Type-C は TCP＝順序保証・再送ありなので「新しいフレームだけ」送る（通信量が大幅減）。
+      // WebRTC(UDP的)のときだけ、相手が受け取っていない分を重ねて送る。
+      const reliable = NET.mode === 'ws' || NET.mode === 'cable';
+      const from = reliable
+        ? Math.max(NET.delay, NET.sentUpTo + 1)
+        : Math.max(NET.delay, NET.peerAck + 1, NET.locSentUpTo - 63);
       const b = [];
       for (let f = from; f <= NET.locSentUpTo; f++) {
         const v = NET.hist.get(f);
         if (v === undefined) break;
         b.push(v);
       }
-      if (b.length) sendIn({ t: 'in', m: NET.mid, s: from, b, a });
+      if (b.length) { sendIn({ t: 'in', m: NET.mid, s: from, b, a }); NET.sentUpTo = NET.locSentUpTo }
     }
 
     function startNetMatch(side, cid1, cid2, delay, mid) {
@@ -1125,6 +1156,13 @@
       NET.rematchSelf = 0;
       NET.rematchPeer = 0;
       NET.waitFrames = 0;
+      NET.sentUpTo = delay - 1;
+      NET.epoch = 0; NET.myChk.clear(); NET.peerChk.clear(); NET.chkSnaps.clear();
+      NET.desyncCount = 0; NET.resyncCount = 0; NET.lead = 0; NET.slow = 0;
+      // ★重要：FR(描画/ポーズ計算に使うフレームカウンタ)やSID等は両端末で必ず同じ値から始める。
+      //   以前は端末ごとにトレーニング中の値を引きずっており、ポーズ→当たり判定がズレる原因になっていた。
+      FR = 0; SID = 0; pnT = 0; cutT = 0; cutTxt = ''; cutCol = '#fff'; HS = 0; SHK = 0; msg = ''; ph = 0; pt = 0;
+      LOC.tapBits = 0;
       TRN.recState = 0;
       TRN.ctrl2P = 0;
       for (let f = 0; f < delay; f++) {
@@ -1273,6 +1311,7 @@
       return { t: 'idle', inv: 0, lbl: '' };
     }
     function recordFM() {
+      if (NET.active) return;
       const pBusy = isBusy(P), eBusy = isBusy(E);
       if (pBusy || eBusy) {
         if (!FM.active) { resetFM(); FM.active = 1 }
@@ -1388,8 +1427,8 @@
 
     const R = a => a * Math.PI / 180;
     function limbPts(ox, oy, a1, l1, a2, l2) {
-      const jx = ox + Math.sin(R(a1)) * l1, jy = oy + Math.cos(R(a1)) * l1;
-      return { j: { x: jx, y: jy }, e: { x: jx + Math.sin(R(a2)) * l2, y: jy + Math.cos(R(a2)) * l2 } };
+      const jx = ox + dsin(R(a1)) * l1, jy = oy + dcos(R(a1)) * l1;
+      return { j: { x: jx, y: jy }, e: { x: jx + dsin(R(a2)) * l2, y: jy + dcos(R(a2)) * l2 } };
     }
     function toWorld(p, lx, ly) {
       return { x: p.x + p.f * lx, y: G + p.y + ly };
@@ -1398,12 +1437,12 @@
     function lerpArr(a, b, t) { return [lerpVal(a[0], b[0], t), lerpVal(a[1], b[1], t)] }
 
     function getPose(p) {
-      const m = p.m, s = p.s, w = Math.sin(FR * .35) * p.w;
+      const m = p.m, s = p.s, w = dsin(FR * .35) * p.w;
       let hh = 38, ln = 0, eo = 0, aF = [40, 120], aB = [20, 110], lF = [22, 8], lB = [-22, -8], extF = 0, extK = 0, extB = 0;
       let isWindup = false, wup = 0, tilt = 0, pivY = 42;
 
       if (p.cr) { hh = 25; lF = [70, 0]; lB = [-25, -60] }
-      if (s === 'i' && !p.cr) ln = Math.sin(FR * .1) * 1.5;
+      if (s === 'i' && !p.cr) ln = dsin(FR * .1) * 1.5;
       if (p.w) { lF = [w * 38, w * 38 - 10]; lB = [-w * 38, -w * 38 - 10]; aF = [40 - w * 20, 120]; aB = [20 + w * 20, 110] }
       if (s === 'js') { hh = 26; lF = [50, 0]; lB = [-30, -50] }
       if (s === 'air') { hh = 40; lF = [45, -5]; lB = [-25, 20]; aF = [150, 160]; aB = [120, 150] }
@@ -1475,7 +1514,7 @@
             lF = [55 * k, -10]; lB = [-45 * k, -25];
           }
         } else if (p.thType === 'drain') {
-          const k = Math.sin(Math.min(1, u * 1.3) * Math.PI * .5);
+          const k = dsin(Math.min(1, u * 1.3) * Math.PI * .5);
           hh = 38; ln = -6 * k;
           aF = [85 + 35 * k, 95 + 30 * k]; aB = [-40 * k, 120];
           lF = [34, 8]; lB = [-30, -10]; extF = 12 * k;
@@ -1513,7 +1552,7 @@
       if (s === 'atk' && !(m && m.th && p.hit)) {
         const k = p.fr, t0 = m.s, t1 = m.s + m.a;
         isWindup = k < t0;
-        wup = isWindup ? Math.sin((k / Math.max(1, t0)) * Math.PI * .5) : 0;
+        wup = isWindup ? dsin((k / Math.max(1, t0)) * Math.PI * .5) : 0;
         const e = isWindup ? 0 : k < t1 ? 1 : Math.max(0, 1 - (k - t1) / Math.max(1, m.t - t1));
         const q = Math.max(0, e);
         const reachPx = Math.max(0, (m.r || 1) * CW * 0.48) * q;
@@ -1673,7 +1712,7 @@
     function circleRectOverlap(cx, cy, rad, b) {
       const nx = Math.max(b.x1, Math.min(cx, b.x2));
       const ny = Math.max(b.y1, Math.min(cy, b.y2));
-      return Math.hypot(cx - nx, cy - ny) <= rad;
+      return dhyp(cx - nx, cy - ny) <= rad;
     }
 
     function getHurtboxes(p) {
@@ -1956,14 +1995,14 @@
           if (def && def.s === 'thDef') {
             if (p.thType === 'suplex') {
               def.x = p.x + dir * (26 - 66 * u);
-              def.y = -Math.sin(u * Math.PI) * 78;
+              def.y = -dsin(u * Math.PI) * 78;
             } else if (p.thType === 'drain') {
               def.x = p.x + dir * 36;
-              def.y = -Math.sin(Math.min(1, u * 1.15) * Math.PI) * 34;
+              def.y = -dsin(Math.min(1, u * 1.15) * Math.PI) * 34;
               if (p.fr % 5 === 0) addSpark(def.x, G + def.y - 42, '#c07aff');
             } else {
-              def.x = p.x + dir * (24 * Math.cos(u * Math.PI) - 16);
-              def.y = -Math.sin(u * Math.PI) * 68;
+              def.x = p.x + dir * (24 * dcos(u * Math.PI) - 16);
+              def.y = -dsin(u * Math.PI) * 68;
             }
           }
           if (p.fr >= p.thDur) {
@@ -2338,9 +2377,9 @@
           b.wait--;
           if (b.wait === 0 && b.target) {
             const tx = b.target.x, ty = b.target.y - 42;
-            const ang = Math.atan2(ty - b.y, tx - b.x);
-            b.vx = Math.cos(ang) * b.spd;
-            b.vy = Math.sin(ang) * b.spd;
+            const adx = tx - b.x, ady = ty - b.y, alen = dhyp(adx, ady);
+            if (alen > 0) { b.vx = adx / alen * b.spd; b.vy = ady / alen * b.spd }
+            else { b.vx = b.dir * b.spd; b.vy = 0 }
             b.dir = b.vx >= 0 ? 1 : -1;
           }
           continue;
@@ -2378,8 +2417,8 @@
           const rSum = d1.rad + d2.rad + 8;
           const mx1 = (b.x + b.px) * .5, my1 = (b.y + b.py) * .5;
           const mx2 = (b2.x + b2.px) * .5, my2 = (b2.y + b2.py) * .5;
-          const hitNow = Math.hypot(b.x - b2.x, b.y - b2.y) < rSum;
-          const hitMid = Math.hypot(mx1 - mx2, my1 - my2) < rSum;
+          const hitNow = dhyp(b.x - b2.x, b.y - b2.y) < rSum;
+          const hitMid = dhyp(mx1 - mx2, my1 - my2) < rSum;
           if (hitNow || hitMid) {
             const p1 = d1.pwr || 1;
             const p2 = d2.pwr || 1;
@@ -2490,35 +2529,120 @@
       advanceGameFrame();
     }
 
+    /* ---------------- ズレ検出・自動修復（ホスト基準） ---------------- */
+    function hashState(snap) {
+      // 画面表示だけに影響する値(pop,popT,n,sparks,FM,msg,SHK)は除外して「ゲーム状態」だけをハッシュ化
+      const o = {
+        P: snap.P, E: snap.E, fbs: snap.fbs, I: snap.I, CI: snap.CI,
+        p1: snap.prev1, p2: snap.prev2, ph: snap.ph, pt: snap.ph === 1 ? snap.pt : 0, rw: snap.rw,   // ptはph=1(ラウンド間)の時だけ意味を持つ
+        FR: snap.FR, T: snap.T, HS: snap.HS, cutT: snap.cutT, SID: snap.SID
+      };
+      const s = JSON.stringify(o, (k, v) => (k === 'pop' || k === 'popT' || k === 'n') ? undefined : v);
+      let h = 0x811c9dc5;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) }
+      return h >>> 0;
+    }
+
+    function recordCheckpoint(f) {
+      const snap = NET.snaps.get(f);
+      if (!snap) return;
+      NET.chkSnaps.set(f, snap);
+      for (const k of NET.chkSnaps.keys()) { if (k < f - CHK_INTERVAL * 10) NET.chkSnaps.delete(k); else break }
+      const h = hashState(snap);
+      NET.myChk.set(f, h);
+      sendNet({ t: 'chk', m: NET.mid, e: NET.epoch, f, h });
+      checkDesync(f);
+    }
+
+    function checkDesync(f) {
+      if (!NET.myChk.has(f) || !NET.peerChk.has(f)) return;
+      const mine = NET.myChk.get(f), theirs = NET.peerChk.get(f);
+      NET.myChk.delete(f); NET.peerChk.delete(f);
+      if (mine === theirs) return;
+      NET.desyncCount++;
+      if (NET.side === 1 && !NET.noResync) sendResync(f);   // ホスト(1P)の状態を正とする
+    }
+
+    function sendResync(f) {
+      const snap = NET.chkSnaps.get(f);
+      if (!snap) return;
+      NET.epoch++;
+      NET.myChk.clear(); NET.peerChk.clear();
+      NET.resyncCount++;
+      sendNet({ t: 'rs', m: NET.mid, e: NET.epoch, f, snap });
+    }
+
+    function applyResync(msg) {
+      if (NET.side !== 2 || !msg.snap) return;
+      const f = msg.f | 0;
+      if (f < NET.syncFr - NET_KEEP + 2 || f >= NET.simFr) return;   // 再計算に必要な入力が残っていない
+      NET.epoch = msg.e | 0;
+      NET.myChk.clear(); NET.peerChk.clear();
+      for (const k of [...NET.chkSnaps.keys()]) if (k >= f) NET.chkSnaps.delete(k);
+      loadGameSnapshot(msg.snap);
+      IS_ROLLBACK = 1;
+      for (let g = f; g < NET.simFr; g++) runNetSimFrame(g);
+      IS_ROLLBACK = 0;
+      for (const k of [...NET.snaps.keys()]) if (k < NET.syncFr) NET.snaps.delete(k);
+      NET.firstMismatchFr = -1;
+      NET.resyncCount++;
+    }
+
+    function onSyncMsg(msg) {
+      if (!NET.active || (msg.m | 0) !== (NET.mid | 0)) return;
+      if (msg.t === 'chk') {
+        if ((msg.e | 0) !== NET.epoch) return;
+        NET.peerChk.set(msg.f | 0, msg.h >>> 0);
+        checkDesync(msg.f | 0);
+      } else if (msg.t === 'rs') {
+        applyResync(msg);
+      }
+    }
+
+    /* ---------------- 速度補正（フレームアドバンテージ） ----------------
+       相手より先に進みすぎている側だけ、ごくわずかに進行を遅くして両者の進行を揃える。
+       これをしないと「先行している側が頻繁に相手待ちで止まる＝カクつく/ラグい」状態になる。 */
+    function updateNetPacing() {
+      const owd = NET.rtt ? NET.rtt / 2 / STEP_MS : 0;
+      const remoteNow = (NET.lastRemoteFr - NET.delay) + owd;
+      const lead = NET.simFr - remoteNow;
+      NET.lead += (lead - NET.lead) * 0.08;
+      const over = NET.lead - 1.0;
+      NET.slow = over > 0 ? Math.min(0.12, over * 0.03) : 0;
+    }
+
     function update() {
       if (NET.active) {
         pumpLocalNetInputs();
 
-        while (NET.in1.has(NET.syncFr) && NET.in2.has(NET.syncFr) && NET.syncFr < NET.simFr) {
-          NET.in1.delete(NET.syncFr);
-          NET.in2.delete(NET.syncFr);
-          NET.predMap.delete(NET.syncFr);
-          NET.snaps.delete(NET.syncFr);
-          NET.syncFr++;
-        }
-
+        // (1) 先に巻き戻す。※以前は「確定→巻き戻し」の順で、確定で消えたスナップショットの
+        //     次フレームから巻き戻していたため、予測ミスが修正されないまま残ってズレていた。
         if (NET.firstMismatchFr !== -1 && NET.firstMismatchFr < NET.simFr) {
           const rbFrom = Math.max(NET.firstMismatchFr, NET.syncFr);
           const snap = NET.snaps.get(rbFrom);
           if (snap) {
-            const rbLen = NET.simFr - rbFrom;
             NET.rbCount++;
-            NET.lastRbFrames = rbLen;
-
+            NET.lastRbFrames = NET.simFr - rbFrom;
             loadGameSnapshot(snap);
             IS_ROLLBACK = 1;
-            for (let f = rbFrom; f < NET.simFr; f++) {
-              runNetSimFrame(f);
-            }
+            for (let f = rbFrom; f < NET.simFr; f++) runNetSimFrame(f);
             IS_ROLLBACK = 0;
           }
-          NET.firstMismatchFr = -1;
         }
+        NET.firstMismatchFr = -1;
+
+        // (2) 巻き戻し済みの状態で、両者の入力が揃ったフレームを「確定」にする
+        while (NET.syncFr < NET.simFr && NET.in1.has(NET.syncFr) && NET.in2.has(NET.syncFr)) {
+          const f = NET.syncFr;
+          if (f > 0 && f % CHK_INTERVAL === 0) recordCheckpoint(f);
+          NET.predMap.delete(f);
+          NET.snaps.delete(f);
+          NET.in1.delete(f - NET_KEEP);
+          NET.in2.delete(f - NET_KEEP);
+          NET.syncFr++;
+        }
+
+        updateNetPacing();
 
         if (NET.simFr - NET.syncFr >= MAX_ROLLBACK_FRAMES) {
           NET.waitFrames++;
@@ -3052,7 +3176,7 @@
         X.fillStyle = '#38d9a9';
         X.fillText(
           (NET.route ? NET.route + ' ' : '') +
-          'RTT ' + Math.round(NET.rtt) + 'ms / 遅延' + NET.delay + 'F / 予測先行' + unconfirmed + 'F / RB:' + NET.lastRbFrames + 'F',
+          'RTT ' + Math.round(NET.rtt) + 'ms / 遅延' + NET.delay + 'F / 予測先行' + unconfirmed + 'F / RB:' + NET.lastRbFrames + 'F' + (NET.resyncCount ? ' / 修復' + NET.resyncCount : ''),
           W - 6, 346
         );
         X.restore();
@@ -3205,10 +3329,11 @@
     let last = 0, acc = 0;
     function loop(t) {
       acc += Math.min(60, t - last); last = t;
-      while (acc >= STEP_MS) {
+      const stepMs = NET.active ? STEP_MS * (1 + NET.slow) : STEP_MS;
+      while (acc >= stepMs) {
         NET.stalled = 0; update();
         if (NET.stalled) { acc = Math.min(acc, STEP_MS * 3); break }
-        acc -= STEP_MS;
+        acc -= stepMs;
       }
       pollPad(); X.save(); if (SHK > 0) { X.translate((Math.random() - .5) * SHK * .9, (Math.random() - .5) * SHK * .9); SHK *= .78; if (SHK < .4) SHK = 0 } draw(); drawExtra(); X.restore(); requestAnimationFrame(loop);
     }
@@ -3232,7 +3357,10 @@
       else if (ph === 2 && NET.active) { requestNetRematch() }
     });
 
-    function pushBtn(k) { LOC.pr[k] = 1; LOC.buf.push({ b: k, t: 14 }) }
+    function pushBtn(k) {
+      LOC.pr[k] = 1; LOC.buf.push({ b: k, t: 14 });
+      const bi = BTN_KEYS.indexOf(k); if (bi >= 0) LOC.tapBits = (LOC.tapBits | 0) | (1 << (4 + bi));
+    }
     function bind(id, fn) {
       const el = $(id);
       el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('on'); fn(1) });
@@ -3463,6 +3591,7 @@
       conn.on('data', msg => {
         if (!msg || typeof msg !== 'object') return;
         if (msg.t === 'in' || msg.t === 'ping' || msg.t === 'pong') { onInMsg(msg); return }
+        if (msg.t === 'chk' || msg.t === 'rs') { onSyncMsg(msg); return }
         if (msg.t === 'hello' && isHost) {
           const dly = Math.max(NET.delay, Number(msg.dly) || 0);
           const mid = newMid();
@@ -3557,6 +3686,7 @@
           onInMsg(m);
           return;
         }
+        if (m.t === 'chk' || m.t === 'rs') { onSyncMsg(m); return }
         if (m.t === 'hello' && myRole === 1) {
           const dly = cableMode ? 0 : Math.max(NET.delay, Number(m.dly) || 0);
           const mid = newMid();
@@ -3599,6 +3729,8 @@
 
     function startNetQuickMatch() {
       let customWs = (netWsUrlInp.value || '').trim();
+      try { if (!customWs) customWs = (new URLSearchParams(location.search).get('ws') || '').trim() } catch (e) { }
+      if (!customWs) customWs = DEFAULT_NET_WS_URL;
       if (!customWs && (location.protocol === 'http:' || location.protocol === 'https:') && !location.hostname.endsWith('github.io')) {
         const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         customWs = `${wsProto}//${location.host}`;
