@@ -1,10 +1,13 @@
-<!doctype html>
+das<!doctype html>
 <html lang="ja">
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <title>2D対戦格闘ゲーム ロールバック対応版</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>2D対戦格闘ゲーム v3 ロールバック対応版</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     :root {
@@ -35,10 +38,26 @@
 
     html {
       height: 100%;
-      scroll-padding-top: env(safe-area-inset-top, 0px)
+      scroll-padding-top: env(safe-area-inset-top, 0px);
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      overscroll-behavior: none;
+      touch-action: none
+    }
+
+    /* iOSのフォーカス時自動ズーム対策：入力欄は16px以上にする */
+    input,
+    select,
+    textarea {
+      font-size: 16px !important
     }
 
     body {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
       margin: 0;
       height: 100%;
       background: var(--bg);
@@ -364,6 +383,82 @@
       }
     }
 
+    /* スマホを縦持ちしたときの「横画面にしてください」案内 */
+    #rot {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(10, 12, 18, .97);
+      color: #eceef6;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+      padding: 20px
+    }
+
+    @media (orientation:portrait) and (pointer:coarse) {
+      body.needland #rot {
+        display: flex
+      }
+    }
+
+    #cl {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 18, .97);
+      color: #eceef6;
+      display: none;
+      flex-direction: column;
+      padding: 14px 16px 24px;
+      overflow-y: auto;
+      z-index: 11;
+      touch-action: pan-y
+    }
+
+    #cl.open {
+      display: flex
+    }
+
+    #cl h2 {
+      margin: 0 0 10px;
+      font-size: 17px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    #cl .cv {
+      font-size: 14px;
+      font-weight: bold;
+      color: #6fe3ff;
+      margin: 12px 0 4px
+    }
+
+    #cl .cv small {
+      color: #8d94ad;
+      font-weight: normal;
+      margin-left: 6px
+    }
+
+    #cl ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #d7dbea
+    }
+
+    #cl li {
+      margin-bottom: 4px
+    }
+
+    #cl li b {
+      color: #ffd34d
+    }
+
     @media (orientation:landscape) {
       body {
         flex-direction: row;
@@ -422,6 +517,8 @@
     <button id="bhb">判定:ON</button>
     <button id="bfm">Fメーター:ON</button>
     <button id="bml">技表</button>
+    <button id="bcl">📝 変更内容</button>
+    <button id="bzoom">🔍 拡大解除</button>
     <button id="bsnd">音:ON</button>
   </div>
   <div id="pad">
@@ -447,6 +544,7 @@
       <div class="orow" style="margin-bottom:6px">
         <button class="obtn pri" id="tDoReset">↺ 位置・状態リセット</button>
         <button class="obtn" id="tOpenMove">📖 技表</button>
+        <button class="obtn" id="tOpenCl">📝 変更内容</button>
         <button class="obtn grn" id="tOpenOnline">⚡ 対戦モード</button>
       </div>
       <div class="olbl">1P（自分）キャラ</div>
@@ -548,6 +646,20 @@
     <div id="mlb"></div>
   </div>
 
+  <!-- 変更内容（更新履歴） -->
+  <div id="cl">
+    <h2><span>📝 変更内容</span><button id="clc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
+    <div id="clb"></div>
+  </div>
+
+  <!-- 縦持ち時の案内（スマホ） -->
+  <div id="rot">
+    <div style="font-size:52px">📱↻</div>
+    <div style="font-size:18px;font-weight:bold">画面を横向きにしてください</div>
+    <div style="font-size:12.5px;color:#b8bfd8;line-height:1.6">横画面でプレイすると画面が大きく操作しやすくなります。<br>（自動で横固定できない端末では、本体の回転ロックを解除して横向きにしてください）</div>
+    <button class="obtn" id="rotSkip">このまま縦で遊ぶ</button>
+  </div>
+
   <!-- ワンタップ対戦モードモーダル -->
   <div id="onl">
     <h2><span>⚡ ワンタップ対戦（番号・コピペ不要）</span><button id="onlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
@@ -620,9 +732,193 @@
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
+    const GAME_VER = '3.0.1';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
+    const CHORD_WIN = 4;              // 同時押し(P+K投げ / SP+P,K でEX 等)とみなす最大フレーム差
+    // ★【調整】距離(px)：
+    const SEP = {
+      techEach: 58,        // 投げ抜け成功時：お互いが離れる距離（ずつ）
+      revFoe: 130,         // 無敵切り返しがヒットした時：相手が飛ばされる距離
+      revSelf: 55,         // 〃 自分が下がる距離
+      throwLand: 140,      // 通常投げ：投げ終わりに相手が着地する位置（投げた側からの距離）※以前は105
+      cmdThrowLand: 200    // コマンド投げ(サプレックス/ゲージ強奪など)：同上
+    };
+    // ★【調整】キャンセル：EXにキャンセルできる技のキー（P技のみ）。技のキーは「方向+ボタン」例: DP=しゃがみP, FP=前P, NP=P, BP=後ろP
+    const EX_CANCEL_KEYS = new Set(['NP', 'NPM', 'FP', 'DP', 'BP']);
     const MAX_ROLLBACK_FRAMES = 16;   // 未確定フレームの上限（超えると相手待ちで停止）
     const NET_KEEP = 240;             // 確定済み入力の保持フレーム数（ズレ修復の再計算用）
     const CHK_INTERVAL = 20;          // 状態チェックサムを交換する間隔（フレーム＝約0.4秒）
+
+
+    /* ╔══════════════════════════════════════════════════════════════════════════════════╗
+       ║  ★★★ 調整ガイド：フレーム・距離・当たり判定をいじりたい時はここを見る ★★★         ║
+       ╚══════════════════════════════════════════════════════════════════════════════════╝
+
+       【検索キーワード → 場所】   Ctrl+F で「【調整】」を検索すると、いじれる場所を全部たどれます。
+         ■ 技のフレーム/ダメージ/リーチ/有利不利   → 【調整】技データ表  (const CHARS)  ※凡例あり
+         ■ 飛び道具の速度/ダメージ/大きさ           → 【調整】飛び道具  (const FBS)    ※凡例あり
+         ■ 歩き速度                                  → CHARS 内 spd
+         ■ 投げ抜け/切り返し/投げ後の距離            → 【調整】距離      (const SEP)
+         ■ ジャンプ/バックステップ/ヒット後ののけぞり距離/ヒットストップ/コンボ補正/ダウン/投げ時間
+                                                     → 【調整】TUNE      (const TUNE)
+         ■ 当たり判定(攻撃/やられ/押し合い/投げ/ビーム) → 【調整】当たり判定 (const HB)
+         ■ キャンセル(どの技からEX/必殺/連打に繋げるか) → 【調整】キャンセル (EX_CANCEL_KEYS, 各技の c / exC / rapid)
+         ■ ゲージ(EX=1本, 切り返し=1本, GB=0.25本, 超必=4本満タン) → resolveInput 内の p.g と canSuper()
+         ■ 体力(10000)/ラウンド時間/先取ラウンド数    → 【調整】ラウンド (const TUNE.round*)
+
+       【フレームの基本ルール（60fpsではなく約51fps=19.6msで1フレーム進む）】
+         発生 s : 技を出してから攻撃判定が出るまで           （小さいほど速い技）
+         持続 a : 攻撃判定が残るフレーム数                    （大きいほど当てやすい）
+         全体 t : 技を出し始めてから次の行動ができるまで       （小さいほど隙が小さい）
+         → 硬直(後隙) = t - (s + a)
+         ヒット時の有利フレーム ≒ v   （相手の硬直 = 攻撃側の残りフレーム + v ）  例: v:3 → ヒット時 +3F 有利
+         ガード時の有利フレーム ≒ g   （相手の硬直 = 攻撃側の残りフレーム + g ）  例: g:-6 → ガードされると -6F 不利
+         ※空中の相手に当てた時・kd(ダウン)付きの技は、v ではなくダウン状態になります。
+
+       【距離の単位】 画面幅 W=640px, 床の高さ G=282, キャラの体の幅 CW=40px。
+         リーチ r は「CW(40px) の何倍か」。 技の先端 = 自分の位置 + 向き × (CW + r × CW)
+         例: r:1.0 → 40 + 40 = 80px 先まで届く / r:2.5 → 40 + 100 = 140px
+    */
+
+    /* ★【調整】距離：投げ抜け・切り返し・投げ後に「相手とどれだけ離れるか」(px)
+         画面端で押し切れない分は、反対側のキャラが下がって距離を確保します。 */
+    // (SEP は下の定義を参照)
+
+    /* ★【調整】TUNE：動き・のけぞり・ヒットストップ・コンボ・ダウン・投げ時間などの数値。
+         ここの数値を変えるだけで挙動が変わります。※オンライン対戦は両者が同じ版である必要があります。 */
+    const TUNE = {
+      /* --- 歩き・ジャンプ・バックステップ --- */
+      walkBackRatio: .75,         // 後ろ歩きの速度倍率（各キャラの spd に掛ける。1で前進と同じ）
+      walkGaugeEvery: 10,         // 前進を何フレーム続けるごとにゲージが貯まるか
+      walkGaugeGain: .045,        // 上記で貯まるゲージ量（1.0 = ゲージ1本）
+      jumpPreFrames: 12,          // ジャンプ入力から離陸までの溜めフレーム（この間は地上で無防備）
+      jumpVy: -9.6,               // ジャンプの初速（マイナス=上。絶対値が大きいほど高く跳ぶ）
+      jumpGravity: .36,           // 空中の重力（大きいほど早く落ちる＝滞空が短い）
+      jumpAirSpeed: 2.1,          // 前/後ろジャンプの横移動速度（px/フレーム）
+      backstepDoubleTapWin: 10,   // 「後ろ2回押し」でバックステップが出る受付フレーム
+      backstepFrames: 22,         // バックステップの全体フレーム
+      backstepInv: 4,             // バックステップ開始から何フレーム無敵か
+      backstepFastFrames: 4,      // 最初の何フレームが速い移動か
+      backstepSpeedFast: 4.5,     // 〃 速い移動の速度(px/F)
+      backstepSpeedSlow: 3.6,     // それ以降の速度(px/F)
+
+      /* --- ヒット / ガードしたときの押し出し距離(px) --- */
+      hitPush: 12,                // ヒットした時、相手が後ろへ押される距離
+      hitPushFar: 34,             // 〃 技に pushFar:1 が付いている場合
+      blockPushDef: 5,            // ガードされた時、防御側が押される距離
+      blockPushAtk: 3,            // ガードされた時、攻撃側が下がる距離（技に noPush:1 があると下がらない）
+
+      /* --- ヒットストップ(当たった瞬間の一瞬の停止)と画面揺れ --- */
+      hitstopLight: 4,            // 軽い攻撃のヒットストップ(フレーム)
+      hitstopHeavy: 7,            // 重い攻撃（ダメージが heavyDmg 以上 or ダウン技）
+      heavyDmg: 1000,             // 「重い攻撃」とみなすダメージ
+      shakeHeavy: 7,              // 重い攻撃の画面揺れの強さ
+      gbHitstop: 12,              // ガードブレイク成立時のヒットストップ
+      gbShake: 10,                // ガードブレイク時の画面揺れ
+      gbPush: 14,                 // ガードブレイク時に相手が押される距離(px)
+
+      /* --- カウンター(相手の攻撃の出掛かり/持続中に当てる) --- */
+      counterDmgMul: 1.2,         // カウンターのダメージ倍率
+      counterStunBonus: 2,        // カウンター時に追加されるヒット硬直(フレーム)
+
+      /* --- コンボ補正：1発目, 2発目, … のダメージ倍率。最後の要素の位置で「強制ダウン」します --- */
+      comboScale: [1, .8, .6, .4, .2, 0],   // 6段目(=配列の最後)でダメージ0＆強制ダウン
+      superMinScale: .5,          // 超必殺技/ビームのコンボ補正の下限（ここより低くならない）
+
+      /* --- ダウン(吹き飛び) --- */
+      kdPush: 2.6,                // ダウンさせた時の相手の横方向の初速
+      kdPushFar: 4.4,             // 〃 pushFar:1 の技の場合
+      kdLaunchGround: -5.0,       // 地上の相手をダウンさせる時の浮き上がり(マイナス=上)
+      kdLaunchAir: -3.4,          // 空中の相手をダウンさせる時の浮き上がり
+      kdLaunchDefault: -4.4,      // startDown() に指定が無い時の浮き上がり
+      kdDefaultFrames: 45,        // kd が未指定のダウン技の基準値
+      kdScale: .65,               // ダウン時間 = kd × この値 （技データの kd を大きくするとダウンが長くなる）
+      kdMinFrames: 28,            // ダウン時間の最低フレーム
+      getupMin: 7, getupMax: 13,  // 起き上がりモーション(＝やられ判定が起き上がる)のフレーム範囲
+      getupRatio: .36,            // 起き上がりフレーム = ダウン時間 × この値 （上の範囲に収める）
+      gaugePerDamage: 3400,       // 「やられゲージ」：ダメージ÷この値 ゲージが貯まる（小さいほど貯まりやすい）
+
+      /* --- 投げ --- */
+      throwWindow: 10,            // 通常投げが入ってから「投げ抜け」できる猶予フレーム
+      throwPull: 32,              // 投げが入った瞬間に相手を引き寄せる距離(px)
+      throwAnimSlam: 26,          // 通常投げの演出フレーム（＝投げ終わるまで）
+      throwAnimSuplex: 30,        // サプレックス系
+      throwAnimDrain: 28,         // ゲージ強奪系
+      throwTechStun: 30,          // 投げ抜け成功後、両者の硬直フレーム
+      throwHitstop: 8, throwShake: 9,   // 投げ決着時のヒットストップ / 画面揺れ
+
+      /* --- 打ち上げ技(up:1 のサマーソルト等)の動き --- */
+      upVy: -16.2,                // 打ち上げの初速
+      upGravityRise: 1.15,        // 上昇中の重力
+      upGravityFall: 1.45,        // 下降中の重力
+      upDrift: 2.2,               // 上昇中の前進速度(px/F)
+
+      /* --- ホップ技(hop:1 のエア・シューター等)の動き --- */
+      hopStartY: -36, hopVy: -6.8, hopGravity: .34,
+
+      /* --- 飛び道具の共通設定 --- */
+      fbSpawnX: 30,               // 飛び道具が出る位置（自分の前方 px）
+      fbSpawnY: 45,               // 〃 高さ（地面から px）
+      fbSpawnYAirType: 42,        // 〃 斜め下に飛ぶ弾(vy指定あり)の高さ
+      beamLife: 20,               // ビーム(超必殺)が残るフレーム
+      beamTop: 68, beamBottom: 32,// ビームの当たり判定の上下（地面からの高さ px）
+      beamStartOffset: 20,        // ビームが自分の前から何px先で始まるか
+      fbClashPad: 8,              // 飛び道具同士の相殺判定の余白(px)
+      boomMaxLifeDefault: 74,     // ブーメランが戻り始めるまでのフレーム（FBS側の maxLife が優先）
+      boomRetSpeedDefault: 4.4,   // 戻りの速度（FBS側の retSpd が優先）
+      boomCatchDist: 26,          // 戻ってきたブーメランが消える、持ち主との距離(px)
+      boomHitLock: 14,            // ブーメラン/ビームが同じ相手に連続ヒットするまでの間隔(F)
+      boomMaxHits: 2,             // ブーメランが消えるまでの最大ヒット数
+
+      /* --- カオス・ジェネレーター --- */
+      chaosCount: 5,              // 出る弾の数
+      chaosInterval: 30,          // 弾が出る間隔(フレーム)
+      chaosWait: 28,              // 弾が出現してから相手へ飛び始めるまで
+
+      /* --- ラウンド・体力 --- */
+      roundFrames: 3600,          // 1ラウンドの長さ（フレーム。約51fpsなので3600≒70秒）
+      roundsToWin: 2,             // 先取ラウンド数
+      roundEndPause: 150          // 決着後、次ラウンド(or 再戦待ち)に入るまでの演出フレーム
+    };
+
+    /* ★【調整】当たり判定 HB：すべて px。座標の基準は「キャラの足元 (p.x, G+p.y)」。 y は上向きがマイナス。
+         ・攻撃判定（赤）  : 技のリーチ r (技データ) と、手足の位置(ポーズ)で位置が決まり、ここの数値で「縦の太さ」が決まる
+         ・やられ判定（緑）: 頭・胴・腕・脚それぞれの大きさ
+         ・押し合い判定    : キャラ同士が重ならないようにする箱
+         画面の「判定:ON」ボタンで、実際の判定の箱が表示されるので見ながら調整できます。 */
+    const HB = {
+      /* ---- やられ判定（立ち・技中） ---- */
+      headW: 11, headH: 11,         // 頭（中心から左右 headW / 上下 headH）
+      torso: 10,                    // 胴体の太さ（肩〜腰の線に足す幅）
+      armF: 6, armB: 5,             // 前腕/後ろ腕の太さ
+      legF: 7, legB: 6,             // 前脚/後ろ脚の太さ
+      /* ---- やられ判定（特殊姿勢） ---- */
+      windupHalfW: 22, windupTop: 26,           // エナジーナックル発生前の低姿勢（lowWindup）
+      slideFront: 34, slideBack: 26, slideTop: 30, // スライディング中（lowSlide）：前/後ろの長さ・高さ
+      /* ---- やられ判定（ダウン中・起き上がり） ---- */
+      downHeadX: 48, downHeadHalfW: 10, downHeadTop: 20, downHeadBottom: 3,    // 倒れている時の頭
+      downBodyBack: 36, downBodyFront: 26, downBodyTop: 16, downBodyBottom: 2, // 倒れている時の体
+      getupHalfW: 22, getupHFrom: 24, getupHTo: 78, getupBottom: 2,             // 起き上がり中（低い→立ち姿へ伸びる）
+      /* ---- 押し合い判定 ---- */
+      pushStandH: 82, pushCrouchH: 52,  // 立ち / しゃがみ の高さ（幅は CW）
+      /* ---- 攻撃判定（通常技・特殊技） ---- */
+      reachBase: 0,                 // リーチに足す固定値(px)。xFront = 位置 + 向き×(CW + r×CW + この値)
+      punchHalf: 10,                // パンチ系：手の高さを中心に ±この値
+      kickHalf: 11,                 // キック系：足の高さを中心に ±この値
+      midHalf: 14,                  // 中段技（h:'m' の特殊技）：±この値
+      defaultHalf: 12,              // 上記以外の特殊技：±この値
+      lowNormalFootMargin: 10, lowNormalMinH: 18,  // 下段の通常技（h:'l'）：足の高さ-10 か 地面から18px のうち高い方まで
+      lowSpecialFootMargin: 10, lowSpecialMinH: 22,// 下段の特殊技
+      /* ---- 攻撃判定（投げ） ---- */
+      throwBack: 8,                 // 投げ判定の後ろ側（自分の背中側へ px）
+      throwFrontBase: .75,          // 投げ判定の前側 = CW×この値 + r×CW×throwFrontR
+      throwFrontR: .65,
+      throwTop: 76, throwBottom: 16,// 投げ判定の高さ（地面から px）
+      /* ---- 攻撃判定（打ち上げ up:1 / 切り返し rev:1 / ジャンプ攻撃） ---- */
+      upBack: 10, upTop: 115, upBelow: 6,   // 打ち上げ技：背中側・上端・地面より下へ
+      revTop: 94, revBottom: 6,             // 無敵切り返し：高さ（上端/下端）
+      airKickMargin: 12,                    // ジャンプK：足の位置から上下に ±
+      airPunchHalf: 12                      // ジャンプP：手の高さから上下に ±
+    };
 
     let IS_ROLLBACK = 0;
 
@@ -659,117 +955,175 @@
       } catch (e) { }
     }
 
+    /* ╔════════════════════════════════════════════════════════════════════════════════════╗
+       ║ 【調整】技データ表（const CHARS）— 凡例                                          ║
+       ╚════════════════════════════════════════════════════════════════════════════════════╝
+       技のキー（左側の名前）の意味
+         NP/FP/DP/BP = P(パンチ)の  N=ニュートラル F=前 D=しゃがみ B=後ろ   例: DP = しゃがみP
+         NK/FK/DK/BK = K(キック)       NS/FS/DS/BS = SP(必殺技)
+         NSM = 5SPをタメた版(最大タメ後) / NPM = 肉弾キャラのタメP
+         XN/XF/XD/XB = EX版(EXボタン+方向)   BSP/BSK/XBSP/XBSK = ダッシュスルー中のP/K派生
+         JP/JK = ジャンプP/K   GB = ガードブレイク(前+S)   SUP = 超必殺技   T = 通常投げ   REV = 無敵切り返し
+
+       基本の数値
+         n   : 技名（画面表示）
+         s   : 発生フレーム（出してから判定が出るまで）  ← 小さいほど速い
+         a   : 持続フレーム（判定が残る長さ）
+         t   : 全体フレーム（出し始めてから動けるまで） ← 小さいほど隙が小さい
+         d   : ダメージ（体力 10000 が満タン）
+         r   : リーチ倍率（CW=40pxの何倍か。 先端 = 40 + r×40 px）
+         backR: 後ろ側にも判定を出す倍率（ジャンプKなど）
+         h   : 攻撃の高さ  'h'=上段(立ちもしゃがみも防げる) 'm'=中段(立ちガード) 'l'=下段(しゃがみガード)
+         g   : ガード時の有利不利フレーム（マイナス=不利）    v : ヒット時の有利フレーム
+         kd  : ダウンさせる技の「ダウン時間」の基準（大きいほど長く倒れる。実際の長さは TUNE.kdScale 倍）
+         mv  : その技の間に前へ進む速度 px/F（マイナスなら後ろへ）
+         chip: ガードされても削れるダメージ
+
+       キャンセル・派生
+         c   : 1 = ヒット/ガードした時に必殺技(SP)・超必殺・EX へキャンセルできる通常技（＋しゃがみ可）
+         exC : 1 = ヒット/ガードした時に超必殺へキャンセルできる必殺技
+         rapid: 1 = 小技の連打キャンセル（ヒット/ガード後に同じ技をP連打で再発動）
+         dashDerive: ダッシュスルー中に P/K で派生する技の指定
+
+       特殊な動き・性質
+         air : 1 = 空中技   hop: 1 = 飛び上がりながら出す   up: 1 = 打ち上げ(サマーソルト系)
+         inv : この技の出始め N フレームは完全無敵   aaInv: 〃 対空(空中の相手)に対してのみ無敵
+         projInv: 〃 飛び道具に対してのみ無敵（弾抜け）
+         mvAfterStart: 1 = 発生(s)までその場で溜めてから、発生と同時に前進する
+         lowWindup: 1 = 発生前に低く構える(やられ判定が低くなる)   lowSlide: 1 = スライディング(常に低いやられ判定)
+         crossupGuard: 1 = 近距離でガードされたら相手の裏に抜ける   noPush: 1 = ガードされても自分が下がらない
+         pushFar: 1 = ヒット時に相手を遠くへ押す
+         gb  : ガードブレイク技(ガード中の相手をガード不能にする。値=ガードブレイク硬直フレーム)
+
+       投げ
+         th: 1 = 投げ技   thType: 'slam'(叩きつけ) / 'suplex'(背後へ) / 'drain'(ゲージ強奪)
+         cmd: 1 = コマンド投げ(出した瞬間に掴む。通常投げは10Fの投げ抜け猶予あり)
+         steal: ゲージ強奪量
+
+       飛び道具・特殊
+         fb  : 出る飛び道具の種類（下の FBS の名前）    stockAdd/stockMax/needStock: 特殊キャラのブーメランストック関連
+         chaos: 1 = カオス・ジェネレーター    rev: 1 = 無敵切り返し    superLock: （未使用の予約。効果なし）
+
+       ★新しい技の属性をいじる時の注意：オンライン対戦は両者が同じ版である必要があります。
+    */
     const CHARS = [
       {
-        id: 0, name: '弾キャラ', role: '砲台・地上統制', spd: 3.05, col: '#4aa3ff',
+        id: 0, name: '弾キャラ', role: '砲台・地上統制', spd: 2.05, col: '#4aa3ff',
         chKey: 'NS', chTo: 'NSM', superName: 'ギガ・ブラスター', gbName: 'ショックブロー',
         M: {
           NP:  { n: 'ヘビーブロー',         s: 14, a: 3,  t: 42, d: 1000, r: 1.6,  h: 'h', g: -8,  v: 2,  c: 1 },
           FP:  { n: 'フック(中段)',         s: 13, a: 3,  t: 38, d: 650,  r: 1.3,  h: 'm', g: -4,  v: 2,  c: 1 },
-          DP:  { n: 'ロージャブ',           s: 4,  a: 2,  t: 14, d: 300,  r: 1.0,  h: 'h', g: 0,   v: 3,  c: 1, tc: { P: 'TC1', K: 'TCK' } },
-          BP:  { n: 'アッパーカット',       s: 12, a: 3,  t: 36, d: 850,  r: 1.2,  h: 'h', g: -6,  v: 0,  kd: 55, c: 1 },
-          TC1: { n: 'ダブルジャブ',         s: 5,  a: 2,  t: 18, d: 400,  r: 1.1,  h: 'h', g: -3,  v: 2,  c: 1, tc: { P: 'TC2' } },
-          TC2: { n: 'トリプルストレート',   s: 7,  a: 3,  t: 28, d: 700,  r: 1.4,  h: 'h', g: -8,  v: 0,  kd: 55, exC: 1 },
-          TCK: { n: 'ジャブ＆ロー',         s: 6,  a: 3,  t: 26, d: 550,  r: 1.4,  h: 'l', g: -6,  v: 0,  kd: 48, exC: 1 },
-          NK:  { n: 'ミドルキック',         s: 8,  a: 3,  t: 32, d: 600,  r: 1.6,  h: 'h', g: 1,   v: 3,  c: 1 },
-          FK:  { n: 'ロング前蹴り',         s: 13, a: 3,  t: 35, d: 800,  r: 1.75, h: 'h', g: 1,   v: 3,  c: 1 },
-          DK:  { n: 'ローキック',           s: 9,  a: 3,  t: 38, d: 600,  r: 1.65, h: 'l', g: 1,   v: 0,  kd: 50, c: 1 },
-          BK:  { n: '引きスライディング',   s: 14, a: 4,  t: 34, d: 600,  r: 1.55, h: 'l', g: 1,   v: 0,  kd: 48, mv: -2, c: 1 },
+          DP:  { n: 'ロージャブ',           s: 4,  a: 2,  t: 14, d: 300,  r: 1.0,  h: 'h', g: -3,   v: 4,  c: 1, rapid: 1 },
+          BP:  { n: 'アッパーカット',       s: 9, a: 3,  t: 30, d: 850,  r: 1.5,  h: 'h', g: -6,  v: 0,  kd: 120, c: 1 },
+          NK:  { n: 'ミドルキック',         s: 8,  a: 3,  t: 32, d: 600,  r: 1.6,  h: 'h', g: 1,   v: 3,  },
+          FK:  { n: 'ロング前蹴り',         s: 13, a: 3,  t: 35, d: 800,  r: 1.75, h: 'h', g: 1,   v: 3,  },
+          DK:  { n: 'ローキック',           s: 9,  a: 3,  t: 38, d: 600,  r: 1.65, h: 'l', g: 1,   v: 0,  kd: 80,  },
+          BK:  { n: '引きスライディング',   s: 14, a: 4,  t: 34, d: 600,  r: 2, h: 'l', g: 1,   v: 0,  kd: 110, mv: -2,  },
           JP:  { n: 'ジャンプP',            s: 5,  a: 4,  t: 24, d: 850,  r: .95,  h: 'm', g: -4,  v: 4,  air: 1 },
           JK:  { n: 'ジャンプK',            s: 7,  a: 6,  t: 28, d: 550,  r: 1.45, backR: 1.35, h: 'm', g: -3, v: 3, air: 1 },
-          NS:  { n: '地上弾',               s: 5,  a: 0,  t: 46, fb: 'z_norm', exC: 1 },
-          NSM: { n: 'メガ・キャノン',       s: 1,  a: 0,  t: 5,  fb: 'z_mega', exC: 1 },
-          FS:  { n: 'ライジングアッパー',   s: 5,  a: 10, t: 55, d: 1000, r: 1.0,  h: 'h', g: -30, v: 0,  kd: 75, up: 1, aaInv: 10 },
-          DS:  { n: 'エア・シューター',     s: 15, a: 0,  t: 65, d: 550,  fb: 'z_air', hop: 1, exC: 1 },
-          BS:  { n: 'エナジーナックル',     s: 12, a: 3,  t: 28, d: 1000, r: 2.25, h: 'm', g: 6,   v: 10, exC: 1 },
-          XN:  { n: 'EX地上弾',             s: 11, a: 0,  t: 42, fb: 'z_ex' },
-          XF:  { n: 'EXライジングアッパー', s: 3,  a: 10, t: 60, d: 1300, r: 1.05, h: 'h', g: -44, v: 0,  kd: 60, up: 1, inv: 14 },
-          XD:  { n: 'EXエア・シューター',   s: 9,  a: 0,  t: 40, fb: 'z_air_ex', hop: 1 },
-          XB:  { n: 'EXエナジーナックル',   s: 9,  a: 3,  t: 20, d: 1100, r: 2.3,  h: 'm', g: 10,  v: 20 },
-          GB:  { n: 'ショックブロー(GB)',   s: 28, a: 3,  t: 54, d: 300,  r: 1.5,  h: 'h', kd: 45,  gb: 60, exC: 1 },
-          SUP: { n: 'ギガ・ブラスター',     s: 10, a: 0,  t: 50, fb: 'z_sup', inv: 14 },
-          T:   { n: '投げ',                 s: 5,  a: 1,  t: 35, d: 1000, r: .9,   th: 1, thType: 'slam', kd: 60 },
-          REV: { n: '無敵切り返し',         s: 1,  a: 6,  t: 24, d: 0,    r: 1.8,  h: 'h', inv: 24, rev: 1 }
+          NS:  { n: '地上弾',               s: 11, a: 0,  t: 48, fb: 'z_norm', },
+          NSM: { n: 'メガ・キャノン',       s: 1,  a: 0,  t: 12,  fb: 'z_mega',  },
+          FS:  { n: 'ライジングアッパー',   s: 5,  a: 10, t: 55, d: 1000, r: 1.0,  h: 'h', g: -30, v: 0,  kd: 110, up: 1, aaInv: 10 },
+          DS:  { n: 'エア・シューター',     s: 15, a: 0,  t: 60, d: 550,  fb: 'z_air', hop: 1,  },
+          BS:  { n: 'エナジーナックル',     s: 13, a: 3,  t: 29, d: 1000, r: 1.2, h: 'm', g: 5,   v: 10, lowWindup: 1,  },
+          XN:  { n: 'EX地上弾',             s: 5,  a: 0,  t: 16, fb: 'z_ex' },
+          XF:  { n: 'EXライジングアッパー', s: 3,  a: 10, t: 60, d: 1300, r: 1.05, h: 'h', g: -44, v: 0,  kd: 140, up: 1, inv: 14 },
+          XD:  { n: 'EXエア・シューター',   s: 9,  a: 0,  t: 35, fb: 'z_air_ex', hop: 1 },
+          XB:  { n: 'EXエナジーナックル',   s: 9,  a: 3,  t: 22, d: 1300, r: 1.85, h: 'm', g: 11,  v: 22, lowWindup: 1 },
+          GB:  { n: 'ショックブロー(GB)',   s: 28, a: 3,  t: 54, d: 300,  r: 1.5,  h: 'h', kd: 45,  gb: 60 },
+          SUP: { n: 'ギガ・ブラスター',     s: 7, a: 0,  t: 50, fb: 'z_sup', inv: 14 },
+          T:   { n: '投げ',                 s: 5,  a: 1,  t: 35, d: 1000, r: .9,   th: 1, thType: 'slam', kd: 50 },
+          REV: { n: '無敵切り返し',         s: 1,  a: 6,  t: 40, d: 0,    r: 1.8,  h: 'h', inv: 40, rev: 1 }
         }
       },
       {
-        id: 1, name: '肉弾キャラ', role: 'インファイター・一発逆転', spd: 3.35, col: '#ff6b6b',
+        id: 1, name: '肉弾キャラ', role: 'インファイター・一発逆転', spd: 4.35, col: '#ff6b6b',
         chKey: 'NP', chTo: 'NPM', superName: 'ファイナル・ブレイカー', gbName: 'ヘビーナックル',
         M: {
           NP:  { n: 'スマッシュ',               s: 6,  a: 3,  t: 40, d: 1100, r: 1.55, h: 'h', g: -7,  v: 3,  c: 1 },
-          NPM: { n: 'ギガント・インパクト',     s: 10, a: 4,  t: 44, d: 1700, r: 1.85, h: 'h', g: 4,   v: 0,  kd: 70, chip: 300, exC: 1 },
-          FP:  { n: '肘打ち(中段)',             s: 12, a: 3,  t: 36, d: 750,  r: 1.4,  h: 'm', g: -4,  v: 2,  c: 1 },
-          DP:  { n: 'ショートパンチ',           s: 4,  a: 2,  t: 13, d: 300,  r: 1.15, h: 'h', g: 0,   v: 3,  c: 1, tc: { P: 'TC1' } },
+          NPM: { n: 'ギガント・インパクト',     s: 1, a: 8,  t: 14, d: 1700, r: 2.35, h: 'h', g: 4,   v: 0,  chip: 300, C: 1 },   // ダウンしない(kd削除)
+          FP:  { n: '肘打ち(中段)',             s: 8, a: 3,  t: 36, d: 750,  r: 1.4,  h: 'm', g: -4,  v: 2,  c: 1 },
+          DP:  { n: 'ショートパンチ',           s: 4,  a: 2,  t: 10, d: 300,  r: 1.15, h: 'h', g: -2,   v: 6,  c: 1, rapid: 1 },
           BP:  { n: 'ヘビーボディブロー',       s: 7,  a: 3,  t: 34, d: 900,  r: 1.3,  h: 'h', g: -4,  v: 3,  c: 1, noPush: 1 },
-          TC1: { n: 'ショート・ボディ',         s: 5,  a: 2,  t: 18, d: 450,  r: 1.25, h: 'h', g: -3,  v: 3,  c: 1, tc: { P: 'TC2' } },
-          TC2: { n: 'アッパーラッシュ',         s: 6,  a: 3,  t: 28, d: 750,  r: 1.35, h: 'h', g: -8,  v: 0,  kd: 50, c: 1 },
-          NK:  { n: 'ハイキック',               s: 6,  a: 3,  t: 20, d: 750,  r: 2,    h: 'h', g: 1,   v: 3,  c: 1 },
-          FK:  { n: '膝蹴り',                   s: 9,  a: 3,  t: 25, d: 950,  r: 2.5,  h: 'h', g: 1,   v: 3,  mv: 1.5, c: 1 },
-          DK:  { n: 'ローキック',               s: 6,  a: 3,  t: 20, d: 800,  r: 2.5,  h: 'l', g: 1,   v: 0,  kd: 50, c: 1 },
-          BK:  { n: 'バックスピンキック',       s: 9,  a: 3,  t: 23, d: 1050, r: 3,    h: 'h', g: 1,   v: 3,  mv: -1.5, c: 1 },
+          NK:  { n: 'ハイキック',               s: 6,  a: 3,  t: 18, d: 550,  r: 2,    h: 'h', g: 1,   v: 3, },
+          FK:  { n: '膝蹴り',                   s: 9,  a: 3,  t: 25, d: 950,  r: 2.5,  h: 'h', g: 1,   v: 3,  mv: 1.5,},
+          DK:  { n: 'ローキック',               s: 6,  a: 3,  t: 20, d: 800,  r: 2.5,  h: 'l', g: 1,   v: 0,  kd: 45 },
+          BK:  { n: 'バックスピンキック',       s: 9,  a: 3,  t: 23, d: 1050, r: 3,    h: 'h', g: 1,   v: 3,  mv: -1.5, },
           JP:  { n: 'ジャンプP',                s: 5,  a: 4,  t: 24, d: 950,  r: 1.0,  h: 'm', g: -4,  v: 4,  air: 1 },
           JK:  { n: 'ジャンプK',                s: 6,  a: 6,  t: 28, d: 600,  r: 1.55, backR: 1.4, h: 'm', g: -3, v: 3, air: 1 },
-          NS:  { n: 'ショルダータックル',       s: 29, a: 5,  t: 38, d: 1000, r: 1.45, h: 'h', g: 2,   v: 3,  mv: 3.5, exC: 1 },
-          FS:  { n: 'サマーソルト',             s: 5,  a: 7,  t: 41, d: 1100, r: 1.25, h: 'h', g: -20, v: 0,  kd: 55, up: 1, aaInv: 8 },
-          DS:  { n: 'デストロイサプレックス',   s: 8,  a: 2,  t: 44, d: 1800, r: 1.15, th: 1, thType: 'suplex', cmd: 1, kd: 65 },
-          BS:  { n: 'ダッシュスルー(弾抜け)',   s: 1,  a: 19, t: 19, mv: 1.2,  projInv: 22, dashDerive: { P: 'BSP', K: 'BSK' } },
-          BSP: { n: 'ラッシュフック(中段)',     s: 7,  a: 3,  t: 26, d: 800,  r: 1.45, h: 'm', g: -5,  v: 2,  exC: 1 },
-          BSK: { n: 'ラッシュスライディング',   s: 7,  a: 4,  t: 28, d: 800,  r: 1.65, h: 'l', g: -6,  v: 0,  kd: 50, mv: 2, exC: 1 },
-          XN:  { n: 'EXショルダータックル',     s: 12, a: 5,  t: 36, d: 1300, r: 1.5,  h: 'h', g: 3,   v: 4,  mv: 4.5 },
-          XF:  { n: 'EXサマーソルト',           s: 3,  a: 7,  t: 39, d: 1430, r: 1.3,  h: 'h', g: -20, v: 0,  kd: 60, up: 1, inv: 12 },
-          XD:  { n: 'EXデストロイサプレックス', s: 5,  a: 2,  t: 44, d: 2300, r: 1.2,  th: 1, thType: 'suplex', cmd: 1, kd: 70 },
-          XB:  { n: 'EXダッシュスルー',         s: 1,  a: 20, t: 25, mv: 7.2,  projInv: 22, dashDerive: { P: 'XBSP', K: 'XBSK' } },
-          XBSP:{ n: 'EXラッシュフック(中段)',   s: 5,  a: 3,  t: 24, d: 1040, r: 1.5,  h: 'm', g: -4,  v: 3 },
-          XBSK:{ n: 'EXラッシュスライディング', s: 5,  a: 4,  t: 26, d: 1040, r: 1.7,  h: 'l', g: -5,  v: 0,  kd: 55, mv: 2.5 },
-          GB:  { n: 'ヘビーナックル(GB)',       s: 25, a: 3,  t: 52, d: 300,  r: 1.95, h: 'h', kd: 45,  gb: 60, mv: 2.2, exC: 1 },
-          SUP: { n: 'ファイナル・ブレイカー',   s: 5,  a: 6,  t: 65, d: 4000, r: 2.35, h: 'h', g: -35, v: 0,  kd: 75, inv: 16, mv: 7, superLock: 1 },
+          NS:  { n: 'ショルダータックル',       s: 22, a: 7,  t: 38, d: 1000, r: 0.5, h: 'h', g: 7,   v: 9,  mv: 19, mvAfterStart: 1, exC: 1 },
+          FS:  { n: 'サマーソルト',             s: 5,  a: 7,  t: 41, d: 1200, r: 1.25, h: 'h', g: -20, v: 0,  kd: 85, up: 1, aaInv: 8 },
+          DS:  { n: 'デストロイサプレックス',   s: 8,  a: 2,  t: 60, d: 2500, r: 1.8, th: 1, thType: 'suplex', cmd: 1, kd: 42 },
+          BS:  { n: 'ダッシュスルー(弾抜け)',   s: 1,  a: 9, t: 9, mv: 1.2,  projInv: 22, dashDerive: { P: 'BSP', K: 'BSK' } },
+          BSP: { n: 'ラッシュフック(中段)',     s: 7,  a: 3,  t: 26, d: 800,  r: 2.05, h: 'm', g: -5,  v: 5 },
+          BSK: { n: 'ラッシュスライディング',   s: 7,  a: 5,  t: 28, d: 800,  r: 1.75, h: 'l', g: -3,  v: 0,  kd: 48, mv: 6.2, lowSlide: 1},
+          XN:  { n: 'EXショルダータックル',     s: 8, a: 7,  t: 24, d: 1300, r: 0.1,  h: 'h', g: 8,   v: 11, mv: 22, mvAfterStart: 1 },
+          XF:  { n: 'EXサマーソルト',           s: 3,  a: 7,  t: 39, d: 1430, r: 1.3,  h: 'h', g: -20, v: 0,  kd: 45, up: 1, inv: 12 },
+          XD:  { n: 'EXデストロイサプレックス', s: 5,  a: 2,  t: 64, d: 3300, r: 1.7,  th: 1, thType: 'suplex', cmd: 1, kd: 45 },
+          XB:  { n: 'EXダッシュスルー',         s: 1,  a: 20, t: 25, mv: 8.4,  projInv: 22, dashDerive: { P: 'XBSP', K: 'XBSK' } },
+          XBSP:{ n: 'EXラッシュフック(中段)',   s: 5,  a: 3,  t: 24, d: 1040, r: 2.15, h: 'm', g: -4,  v: 9 },
+          XBSK:{ n: 'EXラッシュスライディング', s: 5,  a: 5,  t: 26, d: 1040, r: 1.8,  h: 'l', g: 5,  v: 0,  kd: 52, mv: 8, lowSlide: 1 },
+          GB:  { n: 'ヘビーナックル(GB)',       s: 25, a: 3,  t: 52, d: 300,  r: 1.95, h: 'h', kd: 45,  gb: 60, mv: 2.2 },
+          SUP: { n: 'ファイナル・ブレイカー',   s: 5,  a: 10,  t: 65, d: 4000, r: 2.35, h: 'h', g: -45, v: 0,  kd: 75, inv: 16, mv: 12, superLock: 1 },
           T:   { n: '投げ',                     s: 5,  a: 1,  t: 35, d: 1000, r: 1.05, th: 1, thType: 'slam', kd: 60 },
-          REV: { n: '無敵切り返し',             s: 1,  a: 6,  t: 24, d: 0,    r: 1.8,  h: 'h', inv: 24, rev: 1 }
+          REV: { n: '無敵切り返し',             s: 1,  a: 6,  t: 40, d: 0,    r: 1.8,  h: 'h', inv: 40, rev: 1 }
         }
       },
       {
-        id: 2, name: '特殊キャラ', role: '弾キラー・ハメ特化', spd: 2.75, col: '#c07aff',
+        id: 2, name: '特殊キャラ', role: '弾キラー・ハメ特化', spd: 1.75, col: '#c07aff',
         chKey: 'NS', chTo: 'NSM', superName: 'カオス・ジェネレーター', gbName: 'ロングブレイカー',
         M: {
           NP:  { n: '大振りなぎ払い',             s: 16, a: 4,  t: 46, d: 1000, r: 1.8,  h: 'h', g: -9,  v: 2,  c: 1 },
           FP:  { n: 'ロングハンド(中段)',         s: 14, a: 3,  t: 38, d: 650,  r: 1.7,  h: 'm', g: -5,  v: 2,  c: 1 },
-          DP:  { n: 'つっつきパンチ',             s: 5,  a: 2,  t: 15, d: 300,  r: 1.0,  h: 'h', g: -1,  v: 2,  c: 1 },
+          DP:  { n: 'つっつきパンチ',             s: 5,  a: 2,  t: 15, d: 300,  r: 1.0,  h: 'h', g: -1,  v: 2,  c: 1, rapid: 1 },
           BP:  { n: '押し返し手裏剣',             s: 12, a: 3,  t: 36, d: 700,  r: 1.4,  h: 'h', g: -4,  v: 3,  pushFar: 1, c: 1 },
-          NK:  { n: 'フロントキック',             s: 9,  a: 3,  t: 33, d: 600,  r: 2.0,  h: 'h', g: 1,   v: 3,  c: 1 },
-          FK:  { n: '踏みつけ(中段)',             s: 13, a: 3,  t: 35, d: 700,  r: 1.5,  h: 'm', g: 1,   v: 3,  mv: 1.4, c: 1 },
-          DK:  { n: '影払い',                     s: 9,  a: 3,  t: 38, d: 600,  r: 1.8,  h: 'l', g: 1,   v: 0,  kd: 50, c: 1 },
-          BK:  { n: '引き足キック',               s: 13, a: 3,  t: 34, d: 550,  r: 1.6,  h: 'h', g: 1,   v: 2,  mv: -1.8, c: 1 },
+          NK:  { n: 'フロントキック',             s: 9,  a: 3,  t: 33, d: 600,  r: 2.0,  h: 'h', g: 1,   v: 3,   },
+          FK:  { n: '踏みつけ(中段)',             s: 13, a: 3,  t: 35, d: 700,  r: 1.5,  h: 'm', g: 1,   v: 3,  mv: 1.4,  },
+          DK:  { n: '影払い',                     s: 9,  a: 3,  t: 38, d: 600,  r: 1.8,  h: 'l', g: 1,   v: 0,  kd: 110,  },
+          BK:  { n: '引き足キック',               s: 13, a: 3,  t: 34, d: 550,  r: 1.6,  h: 'h', g: 1,   v: 2,  mv: -1.8,  },
           JP:  { n: 'ジャンプP',                  s: 5,  a: 4,  t: 24, d: 850,  r: 1.0,  h: 'm', g: -4,  v: 4,  air: 1 },
           JK:  { n: 'ジャンプK',                  s: 7,  a: 6,  t: 28, d: 550,  r: 1.5,  backR: 1.4, h: 'm', g: -3, v: 3, air: 1 },
-          NS:  { n: 'ブーメランストック',         s: 8,  a: 0,  t: 22, stockAdd: 1, exC: 1 },
-          NSM: { n: 'タメブーメラン(ゲージ削り)', s: 10, a: 0,  t: 10, fb: 's_boom_chg', exC: 1 },
-          FS:  { n: 'ブーメランスロー',           s: 11, a: 0,  t: 34, fb: 's_boom', needStock: 1, exC: 1 },
-          DS:  { n: 'エナジーソウ(ゲージ強奪)',   s: 8,  a: 2,  t: 44, d: 1000, r: 1.05, th: 1, thType: 'drain', cmd: 1, steal: .55, kd: 60 },
-          BS:  { n: 'シャドウスライド(弾抜け)',   s: 9,  a: 14, t: 38, d: 700,  r: 1.7,  h: 'l', g: -10, v: 0,  kd: 50, mv: 4.2, projInv: 24, exC: 1 },
+          NS:  { n: 'ブーメランストック',         s: 7,  a: 0,  t: 34, stockAdd: 1 },
+          NSM: { n: 'タメブーメラン(ゲージ削り)', s: 2,  a: 0,  t: 10, fb: 's_boom_chg', exC: 1 },//これだけ特別
+          FS:  { n: 'ブーメランスロー',           s: 7,  a: 0,  t: 14, fb: 's_boom', needStock: 1 },
+          DS:  { n: 'エナジーソウ(ゲージ強奪)',   s: 8,  a: 2,  t: 44, d: 500, r: 1.5, th: 1, thType: 'drain', cmd: 1, steal: .75, kd: 62 },
+          BS:  { n: 'シャドウスライド(弾抜け)',   s: 9,  a: 14, t: 38, d: 700,  r: 1.7,  h: 'l', g: -16, v: 0,  kd: 57, mv: 4.2, projInv: 24, lowSlide: 1, crossupGuard: 1, exC: 1 },
           XN:  { n: 'EXブーメランストック(全充填)', s: 5, a: 0, t: 16, stockMax: 1 },
-          XF:  { n: 'EXブーメランスロー',         s: 8,  a: 0,  t: 30, fb: 's_boom_ex' },
-          XD:  { n: 'EXエナジーソウ(大強奪)',     s: 5,  a: 2,  t: 44, d: 1350, r: 1.1,  th: 1, thType: 'drain', cmd: 1, steal: .9, kd: 65 },
-          XB:  { n: 'EXシャドウスライド',         s: 6,  a: 14, t: 34, d: 950,  r: 1.8,  h: 'l', g: -8,  v: 0,  kd: 55, mv: 5.5, projInv: 24 },
+          XF:  { n: 'EXブーメランスロー',         s: 6,  a: 0,  t: 12, fb: 's_boom_ex' },
+          XD:  { n: 'EXエナジーソウ(大強奪)',     s: 5,  a: 2,  t: 44, d: 750, r: 1.1,  th: 1, thType: 'drain', cmd: 1, steal: 1.5, kd: 65 },
+          XB:  { n: 'EXシャドウスライド',         s: 6,  a: 14, t: 34, d: 950,  r: 1.8,  h: 'l', g: -8,  v: 0,  kd: 72, mv: 7.5, projInv: 24, lowSlide: 1, crossupGuard: 1 },
           GB:  { n: 'ロングブレイカー(GB)',       s: 28, a: 3,  t: 54, d: 300,  r: 2.3,  h: 'h', kd: 45,  gb: 60, exC: 1 },
-          SUP: { n: 'カオス・ジェネレーター',     s: 8,  a: 0,  t: 24, chaos: 1 },
+          SUP: { n: 'カオス・ジェネレーター',     s: 0,  a: 0,  t: 1, chaos: 1 },
           T:   { n: '投げ',                       s: 5,  a: 1,  t: 35, d: 1000, r: .9,   th: 1, thType: 'slam', kd: 60 },
-          REV: { n: '無敵切り返し',               s: 1,  a: 6,  t: 24, d: 0,    r: 1.8,  h: 'h', inv: 24, rev: 1 }
+          REV: { n: '無敵切り返し',               s: 1,  a: 6,  t: 40, d: 0,    r: 1.8,  h: 'h', inv: 44, rev: 1 }
         }
       }];
     for (const c of CHARS) for (const k in c.M) c.M[k].k = k;
 
+    /* ╔═════════════════════════════════════════════════════════════════════╗
+       ║ 【調整】飛び道具（const FBS）— 凡例                               ║
+       ╚═════════════════════════════════════════════════════════════════════╝
+         pwr : 弾の強さ。飛び道具同士がぶつかると、pwr が小さい方が消える（同じなら相殺）
+         d   : ダメージ        h : 高さ判定(h/m/l)       g : ガード時の有利不利    v : ヒット時の有利
+         kd  : ダウンさせる場合のダウン時間基準           spd : 弾の速度(px/F)      vy : 斜め下へ飛ぶ速度
+         rad : 弾の当たり判定の半径(px)                   col : 色
+         one : 1 = 画面に同時に1個まで（弾キャラのみ。特殊キャラは対象外）  twice: 1 = 少し後にもう1発
+         beam: 1 = ビーム(超必殺)          boom: 1 = ブーメラン(行って戻る)
+         retSpd: ブーメランの戻る速度      maxLife: ブーメランが戻り始めるまでのフレーム
+         gDrain: ガードされた時に相手のゲージを減らす量   chip: ガードされても削れるダメージ
+    */
     const FBS = {
-      z_norm:    { pwr: 1, d: 700,  h: 'h', g: 18, v: 24, spd: 15,  rad: 10, col: '#ffb347', one: 1 },
-      z_ex:      { pwr: 2, d: 910,  h: 'h', g: 20, v: 26, kd: 55, spd: 30,  rad: 12, col: '#6fe3ff', one: 1 },
-      z_mega:    { pwr: 2, d: 1050, h: 'h', g: 50, v: 36, spd: 2,   rad: 15, col: '#ff7a45', one: 3, twice: 1 },
-      z_air:     { pwr: 1, d: 300,  h: 'h', g: 16, v: 22, spd: 5,   vy: 5,   rad: 10, col: '#ffb347', one: 1 },
-      z_air_ex:  { pwr: 2, d: 850,  h: 'm', g: 18, v: 24, spd: 7.5, vy: 5.4, rad: 11, col: '#6fe3ff', one: 1, twice: 1 },
-      z_sup:     { pwr: 3, d: 3000, h: 'h', g: 30, v: 0,  kd: 70, spd: 28,  rad: 26, col: '#4aa3ff', beam: 1, chip: 100 },
-      s_boom:    { pwr: 1, d: 550,  h: 'h', g: 16, v: 22, spd: 3,   retSpd: 4.2, maxLife: 74, rad: 11, col: '#c07aff', boom: 1, gDrain: .4, chip: 0 },
-      s_boom_ex: { pwr: 2, d: 750,  h: 'h', g: 18, v: 24, spd: 5.8, retSpd: 5.0, maxLife: 74, rad: 14, col: '#ff77e9', boom: 1, gDrain: .8, chip: 0 },
-      s_boom_chg:{ pwr: 2, d: 800,  h: 'h', g: 24, v: 28, spd: 5.2, retSpd: 4.5, maxLife: 74, rad: 16, col: '#ffe250', boom: 1, gDrain: 1.5, chip: 0 },
-      s_chaos_m: { pwr: 1, d: 450,  h: 'm', g: 14, v: 18, spd: 6.4, rad: 12, col: '#ff6b9d', chip: 0 },
-      s_chaos_l: { pwr: 1, d: 450,  h: 'l', g: 14, v: 18, spd: 6.4, rad: 12, col: '#5ce1e6', chip: 0 }
+      z_norm:    { pwr: 1, d: 700,  h: 'h', g: 18, v: 24, spd: 10.5, rad: 10, col: '#ffb347', one: 1 },
+      z_ex:      { pwr: 2, d: 910,  h: 'h', g: 30, v: 32, kd: 42, spd: 40,   rad: 12, col: '#6fe3ff', one: 1 },
+      z_mega:    { pwr: 2, d: 1050, h: 'h', g: 50, v: 36, spd: 2,    rad: 15, col: '#ff7a45', one: 3, twice: 1 },
+      z_air:     { pwr: 1, d: 300,  h: 'h', g: 16, v: 22, spd: 5,    vy: 5,   rad: 10, col: '#ffb347', one: 1 },
+      z_air_ex:  { pwr: 2, d: 850,  h: 'm', g: 18, v: 24, spd: 7.5,  vy: 5.4, rad: 11, col: '#6fe3ff', one: 1, twice: 1 },
+      z_sup:     { pwr: 3, d: 3000, h: 'h', g: 30, v: 0,  kd: 48, spd: 28,   rad: 26, col: '#4aa3ff', beam: 1, chip: 100 },
+      s_boom:    { pwr: 1, d: 550,  h: 'h', g: 16, v: 22, spd: 3,    retSpd: 4.2, maxLife: 74, rad: 11, col: '#c07aff', boom: 1, gDrain: .4, chip: 0 },
+      s_boom_ex: { pwr: 2, d: 750,  h: 'h', g: 18, v: 24, spd: 5.8,  retSpd: 5.0, maxLife: 74, rad: 14, col: '#ff77e9', boom: 1, gDrain: .8, chip: 0 },
+      s_boom_chg:{ pwr: 2, d: 800,  h: 'h', g: 24, v: 28, spd: 5.2,  retSpd: 4.5, maxLife: 74, rad: 16, col: '#ffe250', boom: 1, gDrain: 1.5, chip: 0 },
+      s_chaos_m: { pwr: 1, d: 800,  h: 'm', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#ff6b9d', chip: 0 },
+      s_chaos_l: { pwr: 1, d: 800,  h: 'l', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#5ce1e6', chip: 0 }
     };
 
     let cSel = [0, 1];
@@ -782,8 +1136,8 @@
       cd: 0, dn: 0, cs: 0, pun: false, lsid: 0, mid: 0, twT: 0, twK: ''
     });
     let P = mk(210, 0), E = mk(430, 1);
-    let fbs = [], sparks = [], ph = 0, pt = 0, msg = '', rw = [0, 0], ai = { t: 0, a: 'x', f: 0 }, FR = 0, pnT = 0, cutT = 0, cutTxt = '', cutCol = '#fff';
-    let T = 3600, HS = 0, SHK = 0, SID = 0;
+    let fbs = [], sparks = [], ph = 0, pt = 0, msg = '', rw = [0, 0], ai = { t: 0, a: 'x', f: 0 }, FR = 0, pnT = 0, cutT = 0, cutTxt = '', cutCol = '#fff', goT = 0, endType = '', winSide = -1;
+    let T = TUNE.roundFrames, HS = 0, SHK = 0, SID = 0;
 
     function canSuper(p) { return p.g >= 4 && p.supCd <= 0 }
 
@@ -931,7 +1285,7 @@
         prev1: NET.prev1,
         prev2: NET.prev2,
         ph, pt, msg, rw: [rw[0], rw[1]],
-        FR, pnT, cutT, cutTxt, cutCol, T, HS, SHK, SID,
+        FR, pnT, cutT, cutTxt, cutCol, goT, endType, winSide, T, HS, SHK, SID,
         FM: NET.active ? null : {
           max: FM.max,
           p: FM.p.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl })),
@@ -962,6 +1316,7 @@
       NET.prev2 = snap.prev2;
       ph = snap.ph; pt = snap.pt; msg = snap.msg; rw = [snap.rw[0], snap.rw[1]];
       FR = snap.FR; pnT = snap.pnT; cutT = snap.cutT; cutTxt = snap.cutTxt; cutCol = snap.cutCol;
+      goT = snap.goT || 0; endType = snap.endType || ''; winSide = snap.winSide !== undefined ? snap.winSide : -1;
       T = snap.T; HS = snap.HS; SHK = snap.SHK; SID = snap.SID;
       if (snap.FM) {
         FM.max = snap.FM.max;
@@ -995,7 +1350,8 @@
       dst.r = (bits & 2) ? 1 : 0;
       dst.u = (bits & 4) ? 1 : 0;
       dst.d = (bits & 8) ? 1 : 0;
-      dst.pr = {};
+      // ※pr(押した瞬間のフラグ)はここで消さない。ヒットストップ/演出で処理が飛ばされたフレームの入力が
+      //   消えてキャンセルが出なくなっていたため。消費は advanceGameFrame 側(step後)で行う。
       for (let idx = 0; idx < BTN_KEYS.length; idx++) {
         const k = BTN_KEYS[idx];
         const mask = 1 << (4 + idx);
@@ -1161,7 +1517,7 @@
       NET.desyncCount = 0; NET.resyncCount = 0; NET.lead = 0; NET.slow = 0;
       // ★重要：FR(描画/ポーズ計算に使うフレームカウンタ)やSID等は両端末で必ず同じ値から始める。
       //   以前は端末ごとにトレーニング中の値を引きずっており、ポーズ→当たり判定がズレる原因になっていた。
-      FR = 0; SID = 0; pnT = 0; cutT = 0; cutTxt = ''; cutCol = '#fff'; HS = 0; SHK = 0; msg = ''; ph = 0; pt = 0;
+      FR = 0; SID = 0; pnT = 0; cutT = 0; cutTxt = ''; cutCol = '#fff'; goT = 0; endType = ''; winSide = -1; HS = 0; SHK = 0; msg = ''; ph = 0; pt = 0;
       LOC.tapBits = 0;
       TRN.recState = 0;
       TRN.ctrl2P = 0;
@@ -1350,7 +1706,8 @@
         const cid = q.cid;
         Object.assign(q, { hp: 1e4, s: 'i', t: 0, dnMax: 50, supCd: 0, y: 0, vy: 0, vx: 0, cmb: 0, fb: 0, cr: 0, airUsed: 0, n: '', stock: cid === 2 ? 1 : 0, thWin: 0, thTarget: null, chaosQ: 0, chaosT: 0, chaosIdx: 0, popT: 0, cd: 0, dn: 0, cs: 0, twT: 0 });
       }
-      P.x = 160; E.x = 480; P.f = 1; E.f = -1; fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; resetFM(); T = 3600; HS = 0;
+      P.x = 160; E.x = 480; P.f = 1; E.f = -1; fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; endType = ''; winSide = -1; goT = (NET.active || LOCAL_VS.active) ? 48 : 0; resetFM(); T = TUNE.roundFrames; HS = 0;
+      I.pr = {}; CI.pr = {}; I.buf = []; CI.buf = [];   // ラウンド間に押した入力を持ち越さない
     }
 
     function resetTrainingPos(silent) {
@@ -1371,7 +1728,7 @@
       else { P.x = 295; E.x = 345 }
       P.f = E.x >= P.x ? 1 : -1;
       E.f = P.x >= E.x ? 1 : -1;
-      fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; HS = 0; pnT = 0;
+      fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; endType = ''; winSide = -1; goT = 0; HS = 0; pnT = 0;
       TRN.guardHitCnt = 0;
       TRN.prevES = 'i';
       resetFM();
@@ -1400,23 +1757,36 @@
 
     function go(p, m) {
       p.s = 'atk'; p.m = m; p.fr = 0; p.hit = 0; p.n = m.n; p.mid = ++SID;
-      if (m.hop) { p.y = -36; p.vy = -6.8 }
+      if (m.hop) { p.y = TUNE.hopStartY; p.vy = TUNE.hopVy }
     }
 
-    function startDown(o, kdDur, pushVx, launchVy) {
-      const dur = Math.max(50, (kdDur || 45) + 12);
+    // a を da、b を db だけ互いに遠ざける。画面端で押し切れない分は反対側に回して距離を確保する
+    function pushApart(a, b, da, db) {
+      const dir = b.x >= a.x ? 1 : -1, lo = 20, hi = W - 20;
+      let ax = a.x - dir * da, bx = b.x + dir * db;
+      if (ax < lo) { bx += lo - ax; ax = lo } else if (ax > hi) { bx -= ax - hi; ax = hi }
+      if (bx < lo) { ax += lo - bx; bx = lo } else if (bx > hi) { ax -= bx - hi; bx = hi }
+      a.x = Math.max(lo, Math.min(hi, ax));
+      b.x = Math.max(lo, Math.min(hi, bx));
+    }
+
+    // 起き上がりモーションのフレーム数（ダウン時間に比例。TUNE.getupMin〜getupMax に収める）
+    function getupFramesOf(p) { return Math.min(TUNE.getupMax, Math.max(TUNE.getupMin, Math.floor((p.dnMax || 35) * TUNE.getupRatio))) }
+
+    function startDown(o, kdDur, pushVx, launchVy, exactDur) {
+      const dur = exactDur !== undefined ? exactDur : Math.max(TUNE.kdMinFrames, Math.round((kdDur || TUNE.kdDefaultFrames) * TUNE.kdScale));
       o.s = 'dn';
       o.t = dur;
       o.dnMax = dur;
       o.fr = 0;
       o.vx = pushVx || 0;
-      o.vy = launchVy !== undefined ? launchVy : -4.8;
+      o.vy = launchVy !== undefined ? launchVy : TUNE.kdLaunchDefault;
       if (o.vy < 0 && o.y >= 0) o.y = -1;
     }
 
     function executeThrowAnim(atk, def, m, dir) {
       const thType = m.thType || 'slam';
-      const dur = thType === 'suplex' ? 30 : thType === 'drain' ? 28 : 26;
+      const dur = thType === 'suplex' ? TUNE.throwAnimSuplex : thType === 'drain' ? TUNE.throwAnimDrain : TUNE.throwAnimSlam;
       atk.s = 'thAtk'; atk.fr = 0; atk.thDur = dur; atk.thType = thType; atk.thM = m; atk.thDir = dir; atk.thTarget = def;
       atk.n = m.n; atk.y = 0; atk.vy = 0; atk.vx = 0;
       def.s = 'thDef'; def.fr = 0; def.thDur = dur; def.thType = thType; def.thM = m; def.thDir = dir; def.thBy = atk; def.thWin = 0;
@@ -1454,7 +1824,7 @@
 
       if (s === 'dn') {
         const rem = p.t;
-        const getupFrames = 15;
+        const getupFrames = getupFramesOf(p);
         if (rem > getupFrames) {
           const fallK = Math.min(1, p.fr / 9);
           const bounceLift = p.y < 0 ? Math.min(1, -p.y / 18) : 0;
@@ -1627,6 +1997,28 @@
               aF = [95 * q, 82 * q]; aB = [20, 110]; extF = reachPx * 0.85;
             }
           }
+        } else if (m.lowSlide) {
+          if (isWindup) {
+            hh = 38 - 20 * wup; ln = -12 * wup;
+            lF = [55 * wup, 15 * wup]; lB = [-45 * wup, -80 * wup];
+            aF = [-35, 85]; aB = [-45, 75];
+          } else {
+            hh = 15; ln = -18 * q; pivY = 14; tilt = -0.32 * q;
+            lF = [88 * q, 92 * q]; lB = [-58 * q, -86 * q];
+            aF = [-40 * q, 45 * q]; aB = [-55 * q, 35 * q];
+            extK = reachPx * 0.95;
+          }
+        } else if (m.lowWindup) {
+          if (isWindup) {
+            hh = 38 - 22 * wup; ln = -16 * wup;
+            lF = [82 * wup, -12 * wup]; lB = [-45 * wup, -78 * wup];
+            aF = [-105 * wup, 135]; aB = [-65 * wup, 115];
+          } else {
+            hh = 26; ln = 16 * q;
+            lF = [68 * q, 10 * q]; lB = [-42 * q, -35 * q];
+            aF = [88 * q, 86 * q]; aB = [-30 * q, 95 * q];
+            extF = reachPx * 0.9;
+          }
         } else if (m.h === 'l') {
           if (isWindup) {
             hh = 38 - 16 * wup; ln = -14 * wup;
@@ -1715,95 +2107,126 @@
       return dhyp(cx - nx, cy - ny) <= rad;
     }
 
+    // やられ判定：「相手の攻撃が当たる体の箱」のリスト。数値は HB（上の【調整】当たり判定）で変更できる
     function getHurtboxes(p) {
       const y = G + p.y;
       if (p.s === 'dn') {
-        const getupFrames = 15;
+        // ダウン中：起き上がり直前は体が立ち上がっていき、それ以前は地面に寝た低い箱
+        const getupFrames = getupFramesOf(p);
         if (p.t <= getupFrames) {
           const u = Math.max(0, Math.min(1, 1 - (p.t / getupFrames)));
-          const h = lerpVal(24, 78, u);
+          const h = lerpVal(HB.getupHFrom, HB.getupHTo, u);
           return [
-            { x1: p.x - 22, y1: y - h, x2: p.x + 22, y2: y - 2, part: 'body' }
+            { x1: p.x - HB.getupHalfW, y1: y - h, x2: p.x + HB.getupHalfW, y2: y - HB.getupBottom, part: 'body' }
           ];
         }
         return [
-          { x1: p.x - p.f * 48 - 10, y1: y - 20, x2: p.x - p.f * 48 + 10, y2: y - 3, part: 'head' },
-          { x1: Math.min(p.x - p.f * 36, p.x + p.f * 26), y1: y - 16, x2: Math.max(p.x - p.f * 36, p.x + p.f * 26), y2: y - 2, part: 'body' }
+          { x1: p.x - p.f * HB.downHeadX - HB.downHeadHalfW, y1: y - HB.downHeadTop, x2: p.x - p.f * HB.downHeadX + HB.downHeadHalfW, y2: y - HB.downHeadBottom, part: 'head' },
+          { x1: Math.min(p.x - p.f * HB.downBodyBack, p.x + p.f * HB.downBodyFront), y1: y - HB.downBodyTop, x2: Math.max(p.x - p.f * HB.downBodyBack, p.x + p.f * HB.downBodyFront), y2: y - HB.downBodyBottom, part: 'body' }
         ];
       }
+      if (p.s === 'atk' && p.m) {
+        // エナジーナックル発生前の低姿勢溜め：やられ判定を大きく下げる
+        if (p.m.lowWindup && p.fr < p.m.s) {
+          return [
+            { x1: p.x - HB.windupHalfW, y1: y - HB.windupTop, x2: p.x + HB.windupHalfW, y2: y - 2, part: 'body' }
+          ];
+        }
+        // スライディング（K派生・シャドウスライド）：地面から30pxの低姿勢やられ判定
+        // （通常弾下端G-35・ブーメラン下端G-34はくぐり抜け、タメ弾下端G-30・タメブーメラン下端G-29は当たる）
+        if (p.m.lowSlide) {
+          const xFront = p.x + p.f * HB.slideFront, xBack = p.x - p.f * HB.slideBack;
+          return [
+            { x1: Math.min(xFront, xBack), y1: y - HB.slideTop, x2: Math.max(xFront, xBack), y2: y - 2, part: 'body' }
+          ];
+        }
+      }
+      // 通常時：ポーズ(getPose)の関節位置を基準に、頭・胴・腕・脚の箱を作る
       const po = getPose(p);
       return [
-        ptBox(po.head, 11, 11, 'head'),
-        segBox(po.shoulder, po.hip, 10, 'torso'),
-        segBox(po.shoulder, po.handF, 6, 'armF'),
-        segBox(po.shoulder, po.handB, 5, 'armB'),
-        segBox(po.hip, po.footF, 7, 'legF'),
-        segBox(po.hip, po.footB, 6, 'legB')
+        ptBox(po.head, HB.headW, HB.headH, 'head'),
+        segBox(po.shoulder, po.hip, HB.torso, 'torso'),
+        segBox(po.shoulder, po.handF, HB.armF, 'armF'),
+        segBox(po.shoulder, po.handB, HB.armB, 'armB'),
+        segBox(po.hip, po.footF, HB.legF, 'legF'),
+        segBox(po.hip, po.footB, HB.legB, 'legB')
       ];
     }
 
     function getPushbox(p) {
-      const h = p.cr ? 52 : 82;
+      const h = p.cr ? HB.pushCrouchH : HB.pushStandH;   // 押し合い判定の高さ（幅は CW）
       return { x1: p.x - CW / 2, y1: G + p.y - h, x2: p.x + CW / 2, y2: G + p.y };
     }
 
-    const NORM_KEYS = new Set(['NP', 'NPM', 'FP', 'DP', 'BP', 'TC1', 'TC2', 'TCK', 'NK', 'FK', 'DK', 'BK']);
+    const NORM_KEYS = new Set(['NP', 'NPM', 'FP', 'DP', 'BP', 'NK', 'FK', 'DK', 'BK']);
 
+    // 攻撃判定：「技が当たる箱」のリスト。
+    //   横の長さ = リーチ r（技データ）で決まる / 縦の位置 = 手足のポーズ(getPose) / 縦の太さ = HB の数値
     function getHitboxes(p, m) {
       const po = getPose(p), y = G + p.y;
-      const xFront = p.x + p.f * (CW + m.r * CW);
-      const xBack = p.x - p.f * (CW / 2 + (m.backR || 0) * CW);
-      if (m.th) {
-        const x0 = p.x - p.f * 8, x1 = p.x + p.f * (CW * 0.75 + m.r * CW * 0.65);
-        return [{ x1: Math.min(x0, x1), y1: y - 76, x2: Math.max(x0, x1), y2: y - 16, kind: 'throw' }];
+      const xFront = p.x + p.f * (CW + m.r * CW + HB.reachBase);        // 技の先端（前側）
+      const xBack = p.x - p.f * (CW / 2 + (m.backR || 0) * CW);        // 後ろ側（backR があれば伸びる）
+      if (m.th) {   // 投げ判定
+        const x0 = p.x - p.f * HB.throwBack, x1 = p.x + p.f * (CW * HB.throwFrontBase + m.r * CW * HB.throwFrontR);
+        return [{ x1: Math.min(x0, x1), y1: y - HB.throwTop, x2: Math.max(x0, x1), y2: y - HB.throwBottom, kind: 'throw' }];
       }
-      if (m.up) {
-        const x0 = p.x - p.f * 10;
-        return [{ x1: Math.min(x0, xFront), y1: y - 115, x2: Math.max(x0, xFront), y2: y + 6, kind: 'strike' }];
+      if (m.up) {   // 打ち上げ技：体の前〜頭上まで縦に長い
+        const x0 = p.x - p.f * HB.upBack;
+        return [{ x1: Math.min(x0, xFront), y1: y - HB.upTop, x2: Math.max(x0, xFront), y2: y + HB.upBelow, kind: 'strike' }];
       }
-      if (m.rev) {
-        return [{ x1: Math.min(xFront, xBack), y1: y - 94, x2: Math.max(xFront, xBack), y2: y - 6, kind: 'strike' }];
+      if (m.rev) {  // 無敵切り返し
+        return [{ x1: Math.min(xFront, xBack), y1: y - HB.revTop, x2: Math.max(xFront, xBack), y2: y - HB.revBottom, kind: 'strike' }];
       }
-      if (m.air) {
+      if (m.air) {  // ジャンプ攻撃
         if (m.k === 'JK') {
-          const y1 = Math.min(po.footF.y, po.footB.y) - 12;
-          const y2 = Math.max(po.footF.y, po.footB.y) + 12;
+          const y1 = Math.min(po.footF.y, po.footB.y) - HB.airKickMargin;
+          const y2 = Math.max(po.footF.y, po.footB.y) + HB.airKickMargin;
           return [{ x1: Math.min(xFront, xBack), y1, x2: Math.max(xFront, xBack), y2, kind: 'strike' }];
         }
         const x0 = po.shoulder.x;
-        return [{ x1: Math.min(x0, xFront), y1: po.handF.y - 12, x2: Math.max(x0, xFront), y2: po.handF.y + 12, kind: 'strike' }];
+        return [{ x1: Math.min(x0, xFront), y1: po.handF.y - HB.airPunchHalf, x2: Math.max(x0, xFront), y2: po.handF.y + HB.airPunchHalf, kind: 'strike' }];
       }
-      if (NORM_KEYS.has(m.k)) {
+      if (NORM_KEYS.has(m.k)) {   // 通常技
         const isKick = m.k.includes('K');
-        if (m.h === 'l') {
+        if (m.h === 'l') {   // 下段
           const x0 = po.hip.x;
-          const yTop = Math.min(po.footF.y - 10, y - 18);
+          const yTop = Math.min(po.footF.y - HB.lowNormalFootMargin, y - HB.lowNormalMinH);
           return [{ x1: Math.min(x0, xFront), y1: yTop, x2: Math.max(x0, xFront), y2: y, kind: 'strike' }];
         }
-        if (isKick) {
+        if (isKick) {        // キック：足の高さ
           const x0 = po.hip.x;
           const cy = po.footF.y;
-          return [{ x1: Math.min(x0, xFront), y1: cy - 11, x2: Math.max(x0, xFront), y2: cy + 11, kind: 'strike' }];
+          return [{ x1: Math.min(x0, xFront), y1: cy - HB.kickHalf, x2: Math.max(x0, xFront), y2: cy + HB.kickHalf, kind: 'strike' }];
         }
-        const x0 = po.shoulder.x;
+        const x0 = po.shoulder.x;   // パンチ：手の高さ
         const cy = po.handF.y;
-        return [{ x1: Math.min(x0, xFront), y1: cy - 10, x2: Math.max(x0, xFront), y2: cy + 10, kind: 'strike' }];
+        return [{ x1: Math.min(x0, xFront), y1: cy - HB.punchHalf, x2: Math.max(x0, xFront), y2: cy + HB.punchHalf, kind: 'strike' }];
       }
+      // ここから特殊技（必殺技・EX技など）
       if (m.h === 'l') {
         const x0 = po.hip.x;
-        const yTop = Math.min(po.footF.y - 10, y - 22);
+        const yTop = Math.min(po.footF.y - HB.lowSpecialFootMargin, y - HB.lowSpecialMinH);
         return [{ x1: Math.min(x0, xFront), y1: yTop, x2: Math.max(x0, xFront), y2: y, kind: 'strike' }];
       }
       if (m.h === 'm') {
         const isKick = m.k.includes('K');
         const anchorY = isKick ? po.footF.y : po.handF.y;
         const x0 = isKick ? po.hip.x : po.shoulder.x;
-        return [{ x1: Math.min(x0, xFront), y1: anchorY - 14, x2: Math.max(x0, xFront), y2: anchorY + 14, kind: 'strike' }];
+        return [{ x1: Math.min(x0, xFront), y1: anchorY - HB.midHalf, x2: Math.max(x0, xFront), y2: anchorY + HB.midHalf, kind: 'strike' }];
       }
       const useFoot = m.k.includes('K');
       const anchorY = useFoot ? po.footF.y : po.handF.y;
       const x0 = useFoot ? po.hip.x : po.shoulder.x;
-      return [{ x1: Math.min(x0, xFront), y1: anchorY - 12, x2: Math.max(x0, xFront), y2: anchorY + 12, kind: 'strike' }];
+      return [{ x1: Math.min(x0, xFront), y1: anchorY - HB.defaultHalf, x2: Math.max(x0, xFront), y2: anchorY + HB.defaultHalf, kind: 'strike' }];
+    }
+
+    function hasActiveZonerFb(p) {
+      if (p.cid !== 0) return false;
+      return fbs.some(b => b.o === p && !b.dead && FBS[b.kind] && FBS[b.kind].one && !FBS[b.kind].boom);
+    }
+    function isZonerFbMove(p, m) {
+      if (!m || p.cid !== 0) return false;
+      return m.fb === 'z_norm' || m.fb === 'z_ex' || m.fb === 'z_mega' || m.fb === 'z_air' || m.fb === 'z_air_ex';
     }
 
     function resolveInput(p, i) {
@@ -1812,8 +2235,9 @@
       const fw = lr ? 0 : (p.f > 0 ? i.r : i.l), bk = lr ? 0 : (p.f > 0 ? i.l : i.r);
       if (p.thWin > 0 && (i.pr.T || (i.pr.P && i.pr.K))) {
         const o = p.thBy;
-        p.thWin = 0; p.s = 'bs'; p.t = 30; p.x -= p.f * 36;
-        if (o) { o.s = 'bs'; o.t = 30; o.x -= o.f * 36 }
+        p.thWin = 0; p.s = 'bs'; p.t = TUNE.throwTechStun;
+        if (o) { o.s = 'bs'; o.t = TUNE.throwTechStun; pushApart(p, o, SEP.techEach, SEP.techEach) }
+        else p.x -= p.f * SEP.techEach;
         pop(p, '投げ抜け！'); se('tech');
         return;
       }
@@ -1828,33 +2252,44 @@
         return;
       }
       if ((p.s === 'atk' || p.s === 'ch') && p.fr <= 8 && p.m !== M.SUP && p.m !== M.T && !p.m.air && !p.m.up) {
-        if (i.pr.SUP && canSuper(p)) { p.y = 0; p.vy = 0; startSuper(p); return }
-        if (i.pr.T) { p.y = 0; p.vy = 0; go(p, M.T); return }
-        if (i.pr.X && p.g >= 1 && !p.m.k.startsWith('X')) {
-          const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
-          if (M[xk]) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); return }
+        if (i.pr.SUP && canSuper(p)) {
+          // 特殊キャラがタメブーメラン発射の瞬間にカオスジェネレーターを発動した場合、タメブーメランも確実に発射する
+          if (p.cid === 2 && ((p.s === 'ch' && p.cf >= 30) || (p.s === 'atk' && p.m === M.NSM && !p.hit))) {
+            spawnFb(p, 's_boom_chg');
+          }
+          p.y = 0; p.vy = 0; startSuper(p); return;
         }
-      }
-      if (p.s === 'atk' && p.m.tc && p.fr >= p.m.s) {
-        const nxt = i.pr.P ? p.m.tc.P : i.pr.K ? p.m.tc.K : null;
-        if (nxt && M[nxt]) { go(p, M[nxt]); return }
+        if (i.pr.T) { p.y = 0; p.vy = 0; go(p, M.T); return }
+        // ★【調整】キャンセル：技の出始め(8F以内)に押したEXで、その技をEXに差し替える救済。
+        //   通常必殺と同じく「P技のみ」(EX_CANCEL_KEYS)。K技・必殺技からはEXに化けない。
+        if (i.pr.X && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {
+          const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
+          if (M[xk] && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); return }
+        }
       }
       if (p.s === 'atk' && p.m.dashDerive && p.fr >= 5 && p.fr <= 23) {
         const nxt = i.pr.P ? p.m.dashDerive.P : i.pr.K ? p.m.dashDerive.K : null;
         if (nxt && M[nxt]) { go(p, M[nxt]); return }
       }
       if (p.s === 'atk' && p.hit && !p.m.th && (p.m.c || p.m.exC) && !p.m.air) {
-        if (i.pr.SUP && canSuper(p)) { p.y = 0; p.vy = 0; startSuper(p); return }
-        if (i.pr.X && p.g >= 1) {
+        if (i.pr.SUP && canSuper(p)) {
+          if (p.cid === 2 && p.m === M.NSM && !p.hit) spawnFb(p, 's_boom_chg');
+          p.y = 0; p.vy = 0; startSuper(p); return;
+        }
+        if (i.pr.X && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {   // ★【調整】キャンセル：ヒット/ガード後のEXキャンセルもP技のみ
           const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
-          if (M[xk]) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); pop(p, 'EXキャンセル！'); return }
+          if (M[xk] && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); pop(p, 'EXキャンセル！'); return }
         }
         if (p.m.c && i.pr.S) {
           const sk = (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N') + 'S';
           if (sk === 'FS' && p.cid === 2 && p.stock <= 0) { go(p, M.NS); return }
-          if (sk === 'FS' && p.cid === 2) p.stock--;
-          if (M[sk]) { p.y = 0; p.vy = 0; go(p, M[sk]); return }
+          if (M[sk] && !(isZonerFbMove(p, M[sk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; go(p, M[sk]); return }
         }
+      }
+      // 小技の連打キャンセル：ヒット/ガード後に同じ小技(しゃがみP)をP連打で再発動できる
+      if (p.s === 'atk' && p.m.rapid && p.hit && i.pr.P) {
+        const rk = (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N') + 'P';
+        if (rk === p.m.k && M[rk]) { p.y = 0; p.vy = 0; go(p, M[rk]); return }
       }
       if (p.s !== 'i') return;
 
@@ -1863,27 +2298,35 @@
       if (fw && i.pr.SYS && p.g >= .25) { p.g -= .25; go(p, M.GB); return }
       if (i.pr.X && (p.g >= 1 || (!NET.active && !LOCAL_VS.active && p === E && TRN.rev === 2))) {
         const m = M['X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N')];
-        if (m) { if (p.g >= 1) p.g -= 1; go(p, m); return }
+        if (m) {
+          if (isZonerFbMove(p, m) && hasActiveZonerFb(p)) return;
+          if (p.g >= 1) p.g -= 1;
+          go(p, m); return;
+        }
       }
       const b = i.pr.P ? 'P' : i.pr.K ? 'K' : i.pr.S ? 'S' : 0;
       if (b) {
         const dir = i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N';
         const key = dir + b;
         if (key === C0.chKey) {
+          if (p.cid === 0 && hasActiveZonerFb(p)) return;
           p.s = 'ch'; p.cf = 0; p.fr = 0; p.m = M[key]; p.n = 'タメ中'; return;
         }
         if (p.cid === 2 && key === 'FS') {
           if (p.stock <= 0) { go(p, M.NS); return }
-          p.stock--;
+          go(p, M.FS); return;
         }
-        if (M[key]) { go(p, M[key]); return }
+        if (M[key]) {
+          if (isZonerFbMove(p, M[key]) && hasActiveZonerFb(p)) return;
+          go(p, M[key]); return;
+        }
       }
-      if (i.u) { p.s = 'js'; p.t = 12; p.jx = fw ? 1 : bk ? -1 : 0; p.airUsed = 0; return }
+      if (i.u) { p.s = 'js'; p.t = TUNE.jumpPreFrames; p.jx = fw ? 1 : bk ? -1 : 0; p.airUsed = 0; return }
       if (!i.d && (fw || bk)) {
         p.w = fw ? 1 : -1;
-        const spd = fw ? C0.spd : C0.spd * .75;
+        const spd = fw ? C0.spd : C0.spd * TUNE.walkBackRatio;
         p.x += spd * p.f * p.w;
-        if (fw && ++p.gw % 10 === 0) p.g = Math.min(4, p.g + .045);
+        if (fw && ++p.gw % TUNE.walkGaugeEvery === 0) p.g = Math.min(4, p.g + TUNE.walkGaugeGain);
       }
     }
 
@@ -1893,13 +2336,19 @@
       p.supCd = SUP_CD_MAX;
       cutT = 30; cutTxt = C0.name + '：' + C0.superName + '！'; cutCol = C0.col;
       se('sup');
+      // カオス・ジェネレーターは「発動した瞬間」に効果を確定させ、ブーメランも確実に展開できるようにする
+      if (C0.M.SUP.chaos) {
+        p.chaosQ = TUNE.chaosCount; p.chaosT = C0.M.SUP.s + 1; p.chaosIdx = 0;
+        if (p.stock < 1) p.stock = 1;
+        spawnFb(p, 's_boom');
+      }
       go(p, C0.M.SUP);
     }
 
     function spawnFb(p, kind) {
       const d = FBS[kind]; if (!d) return;
-      if (d.one && !d.boom && p.fb) return;
-      const sx = p.x + p.f * 30, sy = d.vy ? (p.y - 42) : (p.y - 45);
+      if (p.cid !== 2 && d.one && !d.boom && p.fb) return;   // 特殊キャラの飛び道具は種類を問わず画面上に何個でも出せる
+      const sx = p.x + p.f * TUNE.fbSpawnX, sy = d.vy ? (p.y - TUNE.fbSpawnYAirType) : (p.y - TUNE.fbSpawnY);
       const f = {
         o: p, kind, x: sx, y: sy, px: sx, py: sy,
         vx: p.f * d.spd, vy: d.vy || 0, dir: p.f, life: 0, ret: 0, hits: 0, wait: 0
@@ -1925,7 +2374,7 @@
       fbs.push({
         o: p, target: o, kind: pt.mid ? 's_chaos_m' : 's_chaos_l',
         x: sx, y: sy, px: sx, py: sy, vx: 0, vy: 0, dir: sx < o.x ? 1 : -1,
-        life: 0, ret: 0, hits: 0, wait: 28, spd: FBS.s_chaos_m.spd
+        life: 0, ret: 0, hits: 0, wait: TUNE.chaosWait, spd: FBS.s_chaos_m.spd
       });
       se('chg');
     }
@@ -1944,15 +2393,15 @@
       p.cr = p.s === 'atk' ? !!p.m.c && i.d : !!i.d && (p.s === 'i' || p.s === 'bs' || p.s === 'gb');
 
       if (p.bkTap > 0) p.bkTap--;
-      if (!bk && p.prevBk) p.bkTap = 10;
+      if (!bk && p.prevBk) p.bkTap = TUNE.backstepDoubleTapWin;
       if (bk && !p.prevBk && p.bkTap > 0 && p.s === 'i' && !i.d) {
-        p.bkTap = 0; p.s = 'bstep'; p.t = 22; p.fr = 0; p.n = 'バックステップ';
+        p.bkTap = 0; p.s = 'bstep'; p.t = TUNE.backstepFrames; p.fr = 0; p.n = 'バックステップ';
       }
       p.prevBk = bk;
 
       if (p.chaosQ > 0 && --p.chaosT <= 0) {
         spawnChaosOrb(p, o, p.chaosIdx++);
-        p.chaosQ--; p.chaosT = 30;
+        p.chaosQ--; p.chaosT = TUNE.chaosInterval;
       }
 
       if (p.thWin > 0) {
@@ -1975,17 +2424,17 @@
           if (!held) go(p, p.cf >= CHARGE_NEED_FRAMES ? M[C0.chTo] : M[C0.chKey]);
           break;
         }
-        case 'js': if (--p.t <= 0) { p.s = 'air'; p.vy = -9.6; p.vx = p.jx * 2.1 * p.f } break;
+        case 'js': if (--p.t <= 0) { p.s = 'air'; p.vy = TUNE.jumpVy; p.vx = p.jx * TUNE.jumpAirSpeed * p.f } break;
         case 'air':
           resolveInput(p, i);
           if (p.s !== 'air') break;
-          p.x += p.vx; p.vy += .36; p.y += p.vy;
+          p.x += p.vx; p.vy += TUNE.jumpGravity; p.y += p.vy;
           if (p.y >= 0) { p.y = 0; p.vy = 0; p.vx = 0; p.airUsed = 0; p.s = 'i' }
           break;
         case 'bstep':
           p.fr++;
-          if (p.fr > 4) p.x -= p.f * 3.6;
-          else p.x -= p.f * 4.5;
+          if (p.fr > TUNE.backstepFastFrames) p.x -= p.f * TUNE.backstepSpeedSlow;
+          else p.x -= p.f * TUNE.backstepSpeedFast;
           if (--p.t <= 0) p.s = 'i';
           break;
         case 'thAtk': {
@@ -2022,10 +2471,20 @@
                 pop(p, 'ゲージ強奪！');
               }
               const landDir = p.thType === 'suplex' ? -dir : dir;
-              def.x = p.x + landDir * 46;
-              startDown(def, m.kd || 60, landDir * 1.6, -3.2);
+              const throwDist = m.cmd ? SEP.cmdThrowLand : SEP.throwLand;
+              def.x = p.x + landDir * throwDist;
+              if (def.x > W - 20) { p.x -= def.x - (W - 20); def.x = W - 20 }
+              else if (def.x < 20) { p.x += 20 - def.x; def.x = 20 }
+              p.x = Math.max(20, Math.min(W - 20, p.x));
+              if (!m.cmd) {
+                // 通常投げ：投げた側が硬直解除した後、相手が25F後に起き上がる（＝投げた側 +25F 有利）
+                startDown(def, 25, landDir * 1.4, -3.0, 25);
+              } else {
+                // コマ投げ：距離を離しつつ短めのダウン
+                startDown(def, m.kd || 42, landDir * 2.0, -3.2);
+              }
               addSpark(def.x, G - 12, p.thType === 'drain' ? '#c07aff' : '#ffe250');
-              se('heavy'); SHK = 9; HS = 8;
+              se('heavy'); SHK = TUNE.throwShake; HS = TUNE.throwHitstop;
             }
             p.thTarget = null;
             p.s = 'i';
@@ -2040,24 +2499,40 @@
         case 'atk': {
           const m = p.m; p.fr++;
           if (m.air) {
-            p.x += p.vx; p.vy += .36; p.y += p.vy;
+            p.x += p.vx; p.vy += TUNE.jumpGravity; p.y += p.vy;
             if (p.y >= 0) { p.y = 0; p.vy = 0; p.vx = 0; p.airUsed = 0; p.s = 'i'; break }
           }
-          if (m.mv) p.x += m.mv * p.f;
-          if (m.hop) { p.vy += .34; p.y = Math.min(0, p.y + p.vy) }
+          if (m.mv) {
+            if (m.mvAfterStart) {
+              // 攻撃発生(m.s)まではその場にとどまり、発生と同時に急加速して突進（相手の裏に抜けないよう手前で止まる）
+              if (p.fr >= m.s && p.fr < m.s + m.a + 2 && !p.hit) {
+                const distToO = (o.x - p.x) * p.f;
+                const stopGap = CW + 4;
+                if (distToO > stopGap) {
+                  p.x += Math.min(m.mv, distToO - stopGap) * p.f;
+                }
+              }
+            } else {
+              p.x += m.mv * p.f;
+            }
+          }
+          if (m.hop) { p.vy += TUNE.hopGravity; p.y = Math.min(0, p.y + p.vy) }
           if (m.up) {
-            if (p.fr === m.s) p.vy = -16.2;
+            if (p.fr === m.s) p.vy = TUNE.upVy;
             if (p.fr >= m.s && (p.y < 0 || p.vy < 0)) {
-              if (p.vy < 0) p.x += p.f * 2.2;
+              if (p.vy < 0) p.x += p.f * TUNE.upDrift;
               p.y += p.vy;
-              p.vy += (p.vy < 0 ? 1.15 : 1.45);
+              p.vy += (p.vy < 0 ? TUNE.upGravityRise : TUNE.upGravityFall);
               if (p.y >= 0) { p.y = 0; p.vy = 0 }
             }
           }
           if (m.stockAdd && p.fr === m.s && !p.hit) { p.stock = Math.min(4, p.stock + 1); pop(p, 'ストック ' + p.stock + '/4'); se('chg'); p.hit = 1 }
           if (m.stockMax && p.fr === m.s && !p.hit) { p.stock = 4; pop(p, 'ストック MAX!'); se('chg'); p.hit = 1 }
-          if (m.chaos && p.fr === m.s && !p.hit) { p.chaosQ = 5; p.chaosT = 1; p.chaosIdx = 0; p.hit = 1 }
           if (m.fb && p.fr === m.s && !p.hit) {
+            if (m.needStock && p.cid === 2) {
+              if (p.stock > 0) p.stock--;
+              else { p.hit = 1; break; }
+            }
             spawnFb(p, m.fb);
             if (FBS[m.fb] && FBS[m.fb].twice) { p.twT = 6; p.twK = m.fb }
             p.hit = 1;
@@ -2102,7 +2577,7 @@
 
     function isInv(o, isProj) {
       if (o.s === 'dn' || o.s === 'gb' || o.thWin > 0 || o.s === 'thAtk' || o.s === 'thDef') return 1;
-      if (o.s === 'bstep' && o.fr <= 4) return 1;
+      if (o.s === 'bstep' && o.fr <= TUNE.backstepInv) return 1;
       if (o.s === 'atk' && o.m.inv && o.fr <= o.m.inv) return 1;
       if (isProj && o.s === 'atk' && o.m.projInv && o.fr <= o.m.projInv) return 1;
       if (!isProj && o.s === 'atk' && o.m.aaInv && o.fr <= o.m.aaInv && (o.y < 0 || o.s === 'air')) return 1;
@@ -2117,16 +2592,16 @@
       const dBoxes = getHurtboxes(o);
 
       if (m.th) {
-        if (o.y < 0 || o.s === 'js' || o.s === 'air' || o.s === 'bs' || o.s === 'dn') return;
+        if (o.y < 0 || o.s === 'js' || o.s === 'air' || o.s === 'bs' || o.s === 'dn' || o.s === 'hs') return;   // ヒット硬直(hs)中は投げ不可
         const hitThrow = hBoxes.some(hb => dBoxes.some(db => rectsOverlap(hb, db)));
         if (!hitThrow) return;
         p.hit = 1;
         if (m.cmd) {
           executeThrowAnim(p, o, m, p.f);
         } else {
-          o.thWin = 10;
+          o.thWin = TUNE.throwWindow;
           o.thBy = p; o.thM = m; o.thDir = p.f;
-          o.x = p.x + p.f * 32;
+          o.x = p.x + p.f * TUNE.throwPull;
           se('grab');
         }
         return;
@@ -2143,7 +2618,7 @@
 
       if (m.rev) {
         p.hit = 1;
-        o.s = 'bs'; o.t = 18; o.x += p.f * 95; p.x -= p.f * 35;
+        o.s = 'bs'; o.t = 18; pushApart(p, o, SEP.revSelf, SEP.revFoe);
         se('tech');
         return;
       }
@@ -2163,8 +2638,8 @@
 
       if (canGuard && heightOk) {
         if (m.gb) {
-          o.s = 'gb'; o.t = m.gb; o.x += dir * 14;
-          pop(o, 'GUARD BREAK!'); se('gb'); HS = 12; SHK = 10;
+          o.s = 'gb'; o.t = m.gb; o.x += dir * TUNE.gbPush;
+          pop(o, 'GUARD BREAK!'); se('gb'); HS = TUNE.gbHitstop; SHK = TUNE.gbShake;
           return;
         }
         if (fbSpec && fbSpec.gDrain) {
@@ -2174,8 +2649,19 @@
         const chip = (fbSpec && fbSpec.chip) || m.chip || 0;
         if (chip > 0 && o.hp > chip) o.hp -= chip;
         if (o.s !== 'gb') { o.s = 'bs'; o.t = Math.max(2, rem + m.g) }
-        o.x += dir * 5;
-        if (p.s === 'atk' && !m.noPush && !m.air) p.x -= p.f * 3;
+        if (m.crossupGuard && Math.abs(o.x - p.x) < 120) {
+          // 近距離でシャドウスライドをガードさせた場合、相手の裏側へ滑り抜ける
+          const targetX = o.x + dir * (CW + 16);
+          if (targetX >= 20 && targetX <= W - 20) {
+            p.x = targetX;
+          } else {
+            o.x -= dir * (CW + 16);
+          }
+          p.f = o.x > p.x ? 1 : -1;
+        } else {
+          o.x += dir * TUNE.blockPushDef;
+          if (p.s === 'atk' && !m.noPush && !m.air) p.x -= p.f * TUNE.blockPushAtk;
+        }
         se('blk');
         return;
       }
@@ -2187,9 +2673,10 @@
       }
       const sid = m.sid || p.mid; o.cmb = o.s === 'hs' ? o.cmb + (o.lsid === sid ? 0 : 1) : 1; o.lsid = sid;
       const n = o.cmb - 1;
-      let scale = [1, .8, .6, .4, .2, 0][Math.min(n, 5)];
-      if ((m.k === 'SUP' || (fbSpec && fbSpec.beam)) && scale < .5 && n < 5) scale = .5;
-      const dm = Math.round(m.d * scale * (o.pun ? 1.2 : 1));
+      const COMBO_LAST = TUNE.comboScale.length - 1;   // 配列の最後の段で強制ダウン
+      let scale = TUNE.comboScale[Math.min(n, COMBO_LAST)];
+      if ((m.k === 'SUP' || (fbSpec && fbSpec.beam)) && scale < TUNE.superMinScale && n < COMBO_LAST) scale = TUNE.superMinScale;
+      const dm = Math.round(m.d * scale * (o.pun ? TUNE.counterDmgMul : 1));
       o.cd += dm; o.dn = o.cmb; o.cs = 90;
       if (o.pun && n === 0) pnT = 70;
 
@@ -2200,18 +2687,19 @@
       }
 
       o.hp -= dm;
-      o.g = Math.min(4, o.g + dm / 3400);
+      o.g = Math.min(4, o.g + dm / TUNE.gaugePerDamage);
       o.airUsed = 0;
-      se(dm >= 1000 || m.kd ? 'heavy' : 'hit'); HS = Math.max(HS, dm >= 1000 || m.kd ? 7 : 4); if (dm >= 1000 || m.kd) SHK = 7;
+      const heavyHit = dm >= TUNE.heavyDmg || m.kd;
+      se(heavyHit ? 'heavy' : 'hit'); HS = Math.max(HS, heavyHit ? TUNE.hitstopHeavy : TUNE.hitstopLight); if (heavyHit) SHK = TUNE.shakeHeavy;
 
-      if (m.kd || n >= 5 || wasAir) {
-        const pushSpd = dir * (m.pushFar ? 4.4 : 2.6);
-        const launchVy = wasAir ? -3.4 : -5.0;
-        startDown(o, m.kd || 45, pushSpd, launchVy);
+      if (m.kd || n >= COMBO_LAST || wasAir) {
+        const pushSpd = dir * (m.pushFar ? TUNE.kdPushFar : TUNE.kdPush);
+        const launchVy = wasAir ? TUNE.kdLaunchAir : TUNE.kdLaunchGround;
+        startDown(o, m.kd || TUNE.kdDefaultFrames, pushSpd, launchVy);
       } else {
         o.y = 0; o.vy = 0; o.vx = 0;
-        o.s = 'hs'; o.t = Math.max(2, rem + m.v + (o.pun && n === 0 ? 2 : 0));
-        o.x += dir * (m.pushFar ? 34 : 12);
+        o.s = 'hs'; o.t = Math.max(2, rem + m.v + (o.pun && n === 0 ? TUNE.counterStunBonus : 0));
+        o.x += dir * (m.pushFar ? TUNE.hitPushFar : TUNE.hitPush);
       }
     }
 
@@ -2322,19 +2810,30 @@
       }
     }
 
+    // 同時押し(コード)判定：2つのボタン入力が CHORD_WIN フレーム以内のときだけ「同時押し」とみなす。
+    // 以前はバッファ(14F)内に両方あれば同時押し扱いだったため、小技(P)→前SP と素早く入力すると
+    // 「P+SP＝EX」と誤判定されてEX技が暴発していた。
     function processInputBuffer(inp) {
       if (inp.buf.length) {
-        const keys = new Set(inp.buf.map(v => v.b));
-        if (
-          (keys.has('S') && keys.has('P') && keys.has('K')) ||
-          (keys.has('X') && keys.has('S')) ||
-          (keys.has('X') && keys.has('SYS')) ||
-          (inp.h.X && (inp.pr.S || inp.pr.SYS)) ||
-          ((inp.h.S || inp.h.SYS) && inp.pr.X) ||
-          (inp.h.P && inp.h.K && inp.h.S)
-        ) inp.pr.SUP = 1;
-        else if ((keys.has('P') && keys.has('K')) || (inp.h.P && inp.pr.K) || (inp.h.K && inp.pr.P)) inp.pr.T = 1;
-        else if ((keys.has('S') && (keys.has('P') || keys.has('K'))) || ((inp.h.P || inp.h.K) && inp.pr.S) || (inp.h.S && (inp.pr.P || inp.pr.K))) inp.pr.X = 1;
+        const ts = {};
+        for (const v of inp.buf) { (ts[v.b] || (ts[v.b] = [])).push(v.t) }
+        const near = (a, b) => {
+          const A = ts[a], B = ts[b];
+          if (!A || !B) return false;
+          for (const x of A) for (const y of B) if (Math.abs(x - y) <= CHORD_WIN) return true;
+          return false;
+        };
+        const near3 = (a, b, c) => {
+          const A = ts[a], B = ts[b], C = ts[c];
+          if (!A || !B || !C) return false;
+          for (const x of A) for (const y of B) for (const z of C) {
+            if (Math.max(x, y, z) - Math.min(x, y, z) <= CHORD_WIN) return true;
+          }
+          return false;
+        };
+        if (near3('S', 'P', 'K') || near('X', 'S') || near('X', 'SYS')) inp.pr.SUP = 1;
+        else if (near('P', 'K')) inp.pr.T = 1;
+        else if (near('S', 'P') || near('S', 'K')) inp.pr.X = 1;
         inp.buf = inp.buf.filter(v => --v.t > 0);
       }
     }
@@ -2357,16 +2856,16 @@
       if (HS > 0) { HS--; return }
       if (cutT > 0) { cutT--; return }
       if (NET.active || LOCAL_VS.active) {
-        if (ph === 2) return;
-        if (ph === 1) { if (--pt <= 0) round(); return }
+        if (ph === 2) { I.pr = {}; CI.pr = {}; return }
+        if (ph === 1) { I.pr = {}; CI.pr = {}; if (--pt <= 0) round(); return }
       }
 
       processInputBuffer(I);
       processInputBuffer(CI);
 
+      TRN.prevES = E.s;   // 「このフレーム開始時」の状態を記録（以前はstep後に記録していたためリバーサルが一切発動しなかった）
       step(P, E, I);
       step(E, P, CI);
-      TRN.prevES = E.s;
       I.pr = {};
       CI.pr = {};
 
@@ -2385,20 +2884,20 @@
           continue;
         }
         b.life++;
-        if (d.beam) { if (b.life >= 20) b.dead = 1; continue }
+        if (d.beam) { if (b.life >= TUNE.beamLife) b.dead = 1; continue }
         if (d.boom) {
           if (!b.ret) {
             b.x += b.vx;
-            if (b.life >= (d.maxLife || 74) || b.x < -35 || b.x > W + 35) {
+            if (b.life >= (d.maxLife || TUNE.boomMaxLifeDefault) || b.x < -35 || b.x > W + 35) {
               b.ret = 1;
               b.hitLock = 0;
             }
           } else {
             const toOwner = b.o.x >= b.x ? 1 : -1;
             b.dir = toOwner;
-            b.vx = toOwner * (d.retSpd || 4.4);
+            b.vx = toOwner * (d.retSpd || TUNE.boomRetSpeedDefault);
             b.x += b.vx;
-            if (Math.abs(b.x - b.o.x) < 26) b.dead = 1;
+            if (Math.abs(b.x - b.o.x) < TUNE.boomCatchDist) b.dead = 1;
           }
         } else {
           b.x += b.vx;
@@ -2414,7 +2913,7 @@
           const b2 = fbs[idx2];
           if (b2.dead || b2.wait > 0 || b.o === b2.o) continue;
           const d2 = FBS[b2.kind];
-          const rSum = d1.rad + d2.rad + 8;
+          const rSum = d1.rad + d2.rad + TUNE.fbClashPad;
           const mx1 = (b.x + b.px) * .5, my1 = (b.y + b.py) * .5;
           const mx2 = (b2.x + b2.px) * .5, my2 = (b2.y + b2.py) * .5;
           const hitNow = dhyp(b.x - b2.x, b.y - b2.y) < rSum;
@@ -2447,10 +2946,10 @@
         let fbHit = 0;
         if (d.beam) {
           const beamBox = {
-            x1: b.dir > 0 ? b.o.x + 20 : 0,
-            y1: G - 68,
-            x2: b.dir > 0 ? W : b.o.x - 20,
-            y2: G - 32
+            x1: b.dir > 0 ? b.o.x + TUNE.beamStartOffset : 0,
+            y1: G - TUNE.beamTop,
+            x2: b.dir > 0 ? W : b.o.x - TUNE.beamStartOffset,
+            y2: G - TUNE.beamBottom
           };
           fbHit = dBoxes.some(db => rectsOverlap(beamBox, db));
         } else {
@@ -2463,8 +2962,8 @@
           hit(b.o, o, { d: d.d, h: d.h, g: d.g, v: d.v, kd: d.kd, k: d.beam ? 'SUP' : 'FB', sid: b.sid || (b.sid = ++SID) }, 0, d, b.dir);
           b.hits++;
           if (d.beam || d.boom) {
-            b.hitLock = 14;
-            if (!d.beam && b.hits >= 2) return 0;
+            b.hitLock = TUNE.boomHitLock;
+            if (!d.beam && b.hits >= TUNE.boomMaxHits) return 0;
           } else {
             if (d.one && !d.boom) b.o.fb = 0;
             return 0;
@@ -2478,8 +2977,10 @@
 
       sparks = sparks.filter(s => --s.t > 0);
 
+      const pCross = P.s === 'atk' && P.m && P.m.crossupGuard;
+      const eCross = E.s === 'atk' && E.m && E.m.crossupGuard;
       const dx = E.x - P.x;
-      if (Math.abs(dx) < CW && P.y === 0 && E.y === 0 && P.s !== 'thAtk' && P.s !== 'thDef' && E.s !== 'thAtk' && E.s !== 'thDef' && P.thWin === 0 && E.thWin === 0) {
+      if (!pCross && !eCross && Math.abs(dx) < CW && P.y === 0 && E.y === 0 && P.s !== 'thAtk' && P.s !== 'thDef' && E.s !== 'thAtk' && E.s !== 'thDef' && P.thWin === 0 && E.thWin === 0) {
         const k = (CW - Math.abs(dx)) / 2 * (dx < 0 ? -1 : 1);
         E.x += k; P.x -= k;
       }
@@ -2490,17 +2991,22 @@
       if (P.cs > 0) P.cs--;
       if (E.cs > 0) E.cs--;
       if (pnT > 0) pnT--;
+      if (goT > 0) goT--;
 
       if (NET.active || LOCAL_VS.active) {
         if (--T <= 0 || P.hp <= 0 || E.hp <= 0) {
+          const isKo = (P.hp <= 0 || E.hp <= 0);
+          endType = isKo ? (P.hp <= 0 && E.hp <= 0 ? 'DOUBLE K.O.' : 'K.O.') : 'TIME UP';
           const w = P.hp > E.hp ? 0 : E.hp > P.hp ? 1 : -1;
+          winSide = w;
           if (w >= 0) rw[w]++;
-          msg = w < 0 ? '引き分け' : w === 0 ? '1P 勝利！' : '2P 勝利！';
-          ph = 1; pt = 120;
-          if (rw[0] >= 2 || rw[1] >= 2) { ph = 2; msg += '（画面タップで再戦）' }
+          const wChar = w === 0 ? CHARS[P.cid].name : w === 1 ? CHARS[E.cid].name : '';
+          msg = w < 0 ? 'DRAW（引き分け）' : (w === 0 ? `1P (${wChar}) WIN!` : `2P (${wChar}) WIN!`);
+          ph = 1; pt = TUNE.roundEndPause;
+          if (rw[0] >= TUNE.roundsToWin || rw[1] >= TUNE.roundsToWin) { ph = 2; msg += '（タップで再戦）' }
         }
       } else {
-        T = 3600;
+        T = TUNE.roundFrames;
         if (P.hp <= 0) P.hp = 1;
         if (E.hp <= 0) E.hp = 1;
         handleTrainingAutoRecover();
@@ -2534,8 +3040,8 @@
       // 画面表示だけに影響する値(pop,popT,n,sparks,FM,msg,SHK)は除外して「ゲーム状態」だけをハッシュ化
       const o = {
         P: snap.P, E: snap.E, fbs: snap.fbs, I: snap.I, CI: snap.CI,
-        p1: snap.prev1, p2: snap.prev2, ph: snap.ph, pt: snap.ph === 1 ? snap.pt : 0, rw: snap.rw,   // ptはph=1(ラウンド間)の時だけ意味を持つ
-        FR: snap.FR, T: snap.T, HS: snap.HS, cutT: snap.cutT, SID: snap.SID
+        p1: snap.prev1, p2: snap.prev2, ph: snap.ph, pt: snap.ph === 1 ? snap.pt : 0, rw: snap.rw,
+        FR: snap.FR, T: snap.T, HS: snap.HS, cutT: snap.cutT, goT: snap.goT, SID: snap.SID
       };
       const s = JSON.stringify(o, (k, v) => (k === 'pop' || k === 'popT' || k === 'n') ? undefined : v);
       let h = 0x811c9dc5;
@@ -3156,9 +3662,77 @@
         X.fillText(cutTxt, W / 2, 172);
       }
 
+      if (goT > 0 && ph === 0 && cutT === 0) {
+        X.save();
+        const prog = 1 - goT / 48;
+        const sc = prog < 0.2 ? 0.5 + (prog / 0.2) * 0.7 : 1.2 - ((prog - 0.2) / 0.8) * 0.2;
+        X.globalAlpha = goT < 12 ? goT / 12 : 1;
+        X.translate(W / 2, 155);
+        X.scale(sc, sc);
+        X.fillStyle = 'rgba(12,16,28,.72)';
+        X.fillRect(-130, -44, 260, 72);
+        X.strokeStyle = '#38d9a9';
+        X.lineWidth = 3;
+        X.strokeRect(-130, -44, 260, 72);
+        X.font = 'italic 900 54px system-ui';
+        X.textAlign = 'center';
+        X.strokeStyle = '#000';
+        X.lineWidth = 6;
+        X.strokeText('GO!', 0, 14);
+        X.fillStyle = '#38d9a9';
+        X.fillText('GO!', 0, 14);
+        X.restore();
+      }
+
       if (msg) {
-        X.fillStyle = '#fff'; X.font = 'bold 28px system-ui'; X.textAlign = 'center';
-        X.fillText(msg, W / 2, 165);
+        X.save();
+        // 勝者キャラクターの頭上に「★ WINNER ★」スポットライト演出を表示して一目で判別可能にする
+        if (winSide === 0 || winSide === 1) {
+          const wf = winSide === 0 ? P : E;
+          const wCol = winSide === 0 ? '#4aa3ff' : '#ff6b6b';
+          const grad = X.createRadialGradient(wf.x, G - 55, 8, wf.x, G - 55, 95);
+          grad.addColorStop(0, winSide === 0 ? 'rgba(74,163,255,.38)' : 'rgba(255,107,107,.38)');
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          X.fillStyle = grad;
+          X.fillRect(wf.x - 100, G - 155, 200, 165);
+
+          X.fillStyle = '#ffd34d';
+          X.strokeStyle = '#000';
+          X.lineWidth = 3;
+          X.font = '900 15px system-ui';
+          X.textAlign = 'center';
+          const badgeY = G + wf.y - 116 + Math.sin(FR * 0.2) * 3;
+          X.strokeText('👑 WINNER!', wf.x, badgeY);
+          X.fillText('👑 WINNER!', wf.x, badgeY);
+        }
+
+        // 中央の KO / TIME UP ＆ 勝者バナー
+        X.fillStyle = 'rgba(10,12,20,.82)';
+        X.fillRect(W / 2 - 230, 96, 460, 114);
+        const bannerCol = winSide === 0 ? '#4aa3ff' : winSide === 1 ? '#ff6b6b' : '#ffd34d';
+        X.strokeStyle = bannerCol;
+        X.lineWidth = 3;
+        X.strokeRect(W / 2 - 230, 96, 460, 114);
+
+        if (endType) {
+          X.font = 'italic 900 44px system-ui';
+          X.textAlign = 'center';
+          X.strokeStyle = '#000';
+          X.lineWidth = 5;
+          const etCol = endType === 'TIME UP' ? '#6fe3ff' : '#ff5d5d';
+          X.strokeText(endType + '!', W / 2, 144);
+          X.fillStyle = etCol;
+          X.fillText(endType + '!', W / 2, 144);
+        }
+
+        X.font = 'bold 22px system-ui';
+        X.textAlign = 'center';
+        X.strokeStyle = '#000';
+        X.lineWidth = 4;
+        X.strokeText(msg, W / 2, 186);
+        X.fillStyle = bannerCol;
+        X.fillText(msg, W / 2, 186);
+        X.restore();
       }
 
       const myFighter = (NET.active && NET.side === 2) ? E : P;
@@ -3510,8 +4084,9 @@
         ['投げ / 抜け', `投げ(またはP+K) / 掴まれた瞬間に投げ or P+K`],
         ['超必殺技（全消費）', `ゲージ満タン時に EX+SP / EX+S / 画面下ボタン（18秒CD）`]
       ];
-      if (c.id === 0) rows.push(['ターゲットコンボ', '2P → P → P / 2P → K']);
-      if (c.id === 1) rows.push(['特殊派生', '2P→P→P / 4SP(ダッシュスルー)中 P:中段・K:下段']);
+      rows.push(['小技の連打キャンセル', `${c.M.DP.n}(2P)がヒット/ガードしたらP連打で連続発動`]);
+      rows.push(['EXキャンセル', 'P技（5P/6P/2P/4P）がヒット/ガードした時にEXボタン']);
+      if (c.id === 1) rows.push(['特殊派生', '4SP(ダッシュスルー)中 P:中段・K:下段']);
       if (c.id === 2) rows.push(['特殊弾ストック', '5SPで弾をストック(最大4)。6SPで発射（EXは消費なし）']);
       $('mlt').textContent = `技表：${c.name}（${c.role}）`;
       $('mlb').innerHTML = `<table><tr><th>コマンド</th><th>技名・効果</th></tr>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join('')}</table><div style="font-size:12px;color:#b8bfd8;line-height:1.6">・相手の背後へ飛んだ弾は「相手側（右）」へレバーを入れるとガード可能。<br>・コンボ補正：100% → 80% → 60% → 40% → 20% → 6段目で強制ダウン（0%）。<br>・キーボード：WASD/矢印移動, J=P, K=K, L=SP, U=投げ, I=EX, O=S, H=超必殺, R=リセット</div>`;
@@ -3585,21 +4160,24 @@
         if (isHost) {
           updateModeUI('相手とつながりました！対戦を開始します...');
         } else {
-          sendNet({ t: 'hello', cid: NET.myCid, dly: NET.delay });
+          sendNet({ t: 'hello', cid: NET.myCid, dly: NET.delay, ver: GAME_VER });
         }
       });
       conn.on('data', msg => {
         if (!msg || typeof msg !== 'object') return;
         if (msg.t === 'in' || msg.t === 'ping' || msg.t === 'pong') { onInMsg(msg); return }
         if (msg.t === 'chk' || msg.t === 'rs') { onSyncMsg(msg); return }
+        if (msg.t === 'badver') { stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
         if (msg.t === 'hello' && isHost) {
+          if (msg.ver !== GAME_VER) { sendNet({ t: 'badver' }); stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
           const dly = Math.max(NET.delay, Number(msg.dly) || 0);
           const mid = newMid();
-          sendNet({ t: 'start', c1: NET.myCid, c2: Number(msg.cid) || 0, dly, mid });
+          sendNet({ t: 'start', c1: NET.myCid, c2: Number(msg.cid) || 0, dly, mid, ver: GAME_VER });
           startNetMatch(1, NET.myCid, Number(msg.cid) || 0, dly, mid);
           return;
         }
         if (msg.t === 'start' && !isHost) {
+          if (msg.ver !== GAME_VER) { stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
           startNetMatch(2, Number(msg.c1) || 0, Number(msg.c2) || 0, Number(msg.dly) || 1, Number(msg.mid) || 1);
           return;
         }
@@ -3669,7 +4247,7 @@
           myRole = Number(m.role) || 1;
           if (myRole === 2) {
             startNetPing();
-            wrap.send({ t: 'hello', cid: NET.myCid, dly: NET.delay });
+            wrap.send({ t: 'hello', cid: NET.myCid, dly: NET.delay, ver: GAME_VER });
           }
           return;
         }
@@ -3687,14 +4265,17 @@
           return;
         }
         if (m.t === 'chk' || m.t === 'rs') { onSyncMsg(m); return }
+        if (m.t === 'badver') { stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
         if (m.t === 'hello' && myRole === 1) {
+          if (m.ver !== GAME_VER) { wrap.send({ t: 'badver' }); stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
           const dly = cableMode ? 0 : Math.max(NET.delay, Number(m.dly) || 0);
           const mid = newMid();
-          wrap.send({ t: 'start', c1: NET.myCid, c2: Number(m.cid) || 0, dly, mid });
+          wrap.send({ t: 'start', c1: NET.myCid, c2: Number(m.cid) || 0, dly, mid, ver: GAME_VER });
           startNetMatch(1, NET.myCid, Number(m.cid) || 0, dly, mid);
           return;
         }
         if (m.t === 'start' && myRole === 2) {
+          if (m.ver !== GAME_VER) { stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
           startNetMatch(2, Number(m.c1) || 0, Number(m.c2) || 0, Number(m.dly) || 0, Number(m.mid) || 1);
           return;
         }
@@ -3818,6 +4399,114 @@
       if (LOCAL_VS.active) stopLocal2P(0);
       else stopNetMatch();
     });
+
+    /* ======================= 変更内容（設定⚙ → 📝 変更内容） ======================= */
+    const CHANGELOG = [
+      {
+        v: GAME_VER, date: '2026/11/20', items: [
+          '<b>EXへの派生をP技のみに統一</b>：通常必殺と同じく、EXにキャンセル（ヒット/ガード後）できるのも、技の出始めにEXへ差し替えできるのもP技（5P/6P/2P/4P・肉弾のタメP）だけです。K技・必殺技からはEXに繋がりません。※K+SPの同時押しは、ボタンを同じフレームで押した時だけEXになります。',
+          '<b>通常投げの後の距離</b>を広げました（投げた側から105px → 140px）。',
+          '<b>数値を調整しやすくしました</b>：コード先頭に「★調整ガイド」を追加。技データ表・飛び道具の凡例コメント、ジャンプ/のけぞり/ヒットストップ/コンボ補正/ダウン/投げ時間などの <b>TUNE</b>、攻撃・やられ・押し合い判定の <b>HB</b>、距離の <b>SEP</b> にまとめ、すべて説明コメントを付けました（挙動は変えていません）。',
+          '<b>バージョン3.0.0</b>：オンライン対戦・ローカル対戦の開始時に「<b>GO!</b>」、体力0決着時に「<b>K.O.!</b>」、時間切れ時に「<b>TIME UP!</b>」を表示し、勝者キャラクターの強調バッジ・バナーで勝者が一目でわかるようにしました。',
+          '<b>投げ・ダウン調整</b>：通常投げの硬直差を投げた側 <b>+25F有利</b> に設定し、コマ投げの投げ後距離を拡大。全体のダウン時間も短縮しました。',
+          '<b>弾キャラ調整</b>：地上弾の発生・弾速を少し遅くし、EX弾の全体フレーム短縮・弾速アップ・ガード硬直増加を実施。画面上に弾がある間は弾技を撃てないよう修正し、EX弾の無駄撃ちを防止。エナジーナックル／EX版は発生前に大きく身をかがめるモーション＆低やられ判定を追加し、リーチを短縮（EX版は通常版より強化）。',
+          '<b>肉弾キャラ調整</b>：ショルダータックルは発生までその場にとどまり、発生と同時に高速突進＆ガード・ヒット硬直増加で近距離の間合いに持ち込めるよう強化。ダッシュスルーの移動距離増加、P派生リーチ延長、K派生を低姿勢スライディング（通常弾・ブーメランをくぐり、タメ弾は当たる）に変更。',
+          '<b>特殊キャラ調整</b>：カオスジェネレーター発動時のブーメラン不発や、タメブーメラン発射直後のカオスジェネレーター発動でタメブーメランが消える不具合、タメブーメラン存在時のブーメラン連射制限を修正。カオスジェネレーター弾のダメージを1発 <b>800</b> に変更。シャドウスライドを低姿勢化し、近距離ガード時に相手の裏側へ抜けるよう調整。'
+        ]
+      },
+      {
+        v: '2.4.0', date: '2026/11/20', items: [
+          '<b>投げ抜け成功時</b>に、お互いがより大きく離れるようにしました（画面端では押し込めない分を反対側へ補正）。',
+          '<b>切り返し</b>がヒットした時の相手との距離を広げました。',
+          '<b>投げ（通常投げ・コマンド投げ・サプレックス・ゲージ強奪）</b>の決着後、相手を大きく離れた位置に着地させるようにしました。',
+          '<b>小技（しゃがみP）から前SP</b>をキャンセルした時に、意図せずEX技が出る問題を修正しました。「P+SP」「P+K」などの同時押しは約4フレーム以内の入力だけを同時押しとみなします（連続入力は通常のキャンセルとして扱います）。あわせて、ヒットストップ中に押した入力が消えてキャンセルが出ない問題も修正しました。',
+          '<b>EXキャンセル</b>の対象を<b>P技のみ</b>（5P / 6P / 2P / 4P、肉弾キャラのタメP）に限定しました。',
+          '<b>ターゲットコンボ（TC）を廃止</b>し、<b>小技の連打キャンセル</b>を実装しました。しゃがみP（2P）がヒット/ガードしたら、Pを連打するだけで同じ小技を連続で出せます。',
+          '<b>ヒット硬直中の相手には投げ属性の技が当たらない</b>ようにしました（通常投げ・コマンド投げとも）。',
+          '<b>特殊キャラの飛び道具</b>は、種類を問わず画面上に何個でも存在できます（個数制限なしを明示化）。',
+          '<b>カオス・ジェネレーター</b>は、発動した瞬間に効果が確定するようにしました。発生中にダメージを受けても弾は出続けます。',
+          '<b>トレーニングモードのリバーサル設定</b>が発動しない不具合を修正しました（起き上がり/硬直解除の判定ミス）。',
+          '<b>肉弾キャラのタメP（ギガント・インパクト）</b>でダウンしないようにしました。',
+          '<b>スマホ</b>で縦持ちした場合に「横画面にしてください」を表示し、可能な端末では横画面に自動固定します（「このまま縦で遊ぶ」も選べます）。',
+          '<b>iOS</b>で画面が拡大して操作不能になる問題を対策しました（ピンチ/ダブルタップ拡大の無効化、入力欄フォーカス時の自動拡大の防止、拡大状態の自動リセット、設定に「🔍 拡大解除」ボタンを追加）。',
+          '対戦時に<b>相手とゲームのバージョンが違う</b>場合は、ズレを防ぐため接続を中止して再読込を促すようにしました。'
+        ]
+      },
+      {
+        v: '2.3.x', date: '2026/11/18', items: [
+          '対戦中に1P/2Pの画面がズレ、片方だけ試合が終わっている問題を修正（ロールバック処理の順序バグ・フレームカウンタ初期化・端末差のある数学関数を修正）。',
+          '万一ズレても約0.5秒で自動修復する仕組み（状態チェックサム）を追加。',
+          'ラグ軽減：先行している側を自動で微減速、通信量の削減、サーバーのKeepAlive対応。'
+        ]
+      }
+    ];
+    function renderChangelog() {
+      $('clb').innerHTML = CHANGELOG.map(e =>
+        `<div class="cv">v${e.v}<small>${e.date}</small></div><ul>${e.items.map(t => `<li>${t}</li>`).join('')}</ul>`).join('');
+    }
+    function openChangelog() {
+      renderChangelog();
+      for (const id of ['tb', 'trn', 'ml', 'onl']) $(id).classList.remove('open');
+      $('cl').classList.add('open');
+    }
+    $('bcl').addEventListener('pointerdown', openChangelog);
+    $('tOpenCl').addEventListener('pointerdown', openChangelog);
+    $('clc').addEventListener('pointerdown', () => $('cl').classList.remove('open'));
+
+    /* ======================= iOS：画面拡大の防止 ======================= */
+    (function antiZoom() {
+      const stop = e => e.preventDefault();
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, stop, { passive: false }));
+      document.addEventListener('touchmove', e => {
+        if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault();
+      }, { passive: false });
+      let lastEnd = 0;
+      document.addEventListener('touchend', e => {
+        const now = Date.now();
+        const inField = e.target && e.target.closest && e.target.closest('input,textarea,select');
+        if (now - lastEnd < 350 && !inField) e.preventDefault();   // ダブルタップ拡大の無効化
+        lastEnd = now;
+      }, { passive: false });
+      document.addEventListener('dblclick', stop, { passive: false });
+      document.addEventListener('contextmenu', e => { if (!(e.target.closest && e.target.closest('input,textarea'))) e.preventDefault() });
+      const meta = document.querySelector('meta[name=viewport]');
+      const BASE = 'width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover';
+      function resetZoom() {
+        if (!meta) return;
+        meta.setAttribute('content', BASE.replace('maximum-scale=1', 'maximum-scale=1.0001'));
+        setTimeout(() => meta.setAttribute('content', BASE), 120);
+        try { window.scrollTo(0, 0) } catch (e) { }
+      }
+      if (window.visualViewport) {
+        visualViewport.addEventListener('resize', () => { if (visualViewport.scale > 1.02) resetZoom() });
+      }
+      addEventListener('orientationchange', () => setTimeout(resetZoom, 300));
+      $('bzoom').addEventListener('pointerdown', () => { resetZoom(); $('tb').classList.remove('open') });
+    })();
+
+    /* ======================= スマホ：横画面を既定にする ======================= */
+    (function landscapeDefault() {
+      const coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+      if (!coarse) return;
+      let skip = false;
+      try { skip = sessionStorage.getItem('fgt2d_portrait_ok') === '1' } catch (e) { }
+      if (!skip) document.body.classList.add('needland');
+      $('rotSkip').addEventListener('pointerdown', () => {
+        document.body.classList.remove('needland');
+        try { sessionStorage.setItem('fgt2d_portrait_ok', '1') } catch (e) { }
+      });
+      // 対応ブラウザ(主にAndroid Chrome)では最初のタッチで全画面＋横固定
+      function lockLandscape() {
+        try {
+          const lock = () => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }) };
+          const el = document.documentElement;
+          if (/Android/i.test(navigator.userAgent) && el.requestFullscreen && !document.fullscreenElement) {
+            el.requestFullscreen().then(lock).catch(lock);
+          } else lock();
+        } catch (e) { }
+      }
+      addEventListener('pointerdown', lockLandscape, { once: true });
+    })();
 
     setChars();
     resetTrainingPos(1);
