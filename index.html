@@ -1,4 +1,4 @@
-das<!doctype html>
+<!doctype html>
 <html lang="ja">
 
 <head>
@@ -732,7 +732,7 @@ das<!doctype html>
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
-    const GAME_VER = '3.0.1';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
+    const GAME_VER = '3.0.2';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
     const CHORD_WIN = 4;              // 同時押し(P+K投げ / SP+P,K でEX 等)とみなす最大フレーム差
     // ★【調整】距離(px)：
     const SEP = {
@@ -809,7 +809,7 @@ das<!doctype html>
 
       /* --- ヒットストップ(当たった瞬間の一瞬の停止)と画面揺れ --- */
       hitstopLight: 6,            // 軽い攻撃のヒットストップ(フレーム)
-      hitstopHeavy: 14,            // 重い攻撃（ダメージが heavyDmg 以上 or ダウン技）
+      hitstopHeavy: 10,            // 重い攻撃（ダメージが heavyDmg 以上 or ダウン技）
       heavyDmg: 1000,             // 「重い攻撃」とみなすダメージ
       shakeHeavy: 4,              // 重い攻撃の画面揺れの強さ
       gbHitstop: 12,              // ガードブレイク成立時のヒットストップ
@@ -916,6 +916,8 @@ das<!doctype html>
       /* ---- 攻撃判定（打ち上げ up:1 / 切り返し rev:1 / ジャンプ攻撃） ---- */
       upBack: 10, upTop: 115, upBelow: 6,   // 打ち上げ技：背中側・上端・地面より下へ
       revTop: 94, revBottom: 6,             // 無敵切り返し：高さ（上端/下端）
+      antiAirBack: -10,                      // 対空P(antiAir:1)：背中側へ何px判定を出すか
+      antiAirTop: 108, antiAirBottom: 70,   // 対空P：判定の上端/下端（地面からの高さ px。頭上〜胸の高さ）
       airKickMargin: 12,                    // ジャンプK：足の位置から上下に ±
       airPunchHalf: 12                      // ジャンプP：手の高さから上下に ±
     };
@@ -987,6 +989,7 @@ das<!doctype html>
 
        特殊な動き・性質
          air : 1 = 空中技   hop: 1 = 飛び上がりながら出す   up: 1 = 打ち上げ(サマーソルト系)
+         antiAir: 1 = 対空パンチ（腕を振り上げ、体の前〜頭上に判定が出る。無敵はなし。範囲は HB.antiAir*、長さは r）
          inv : この技の出始め N フレームは完全無敵   aaInv: 〃 対空(空中の相手)に対してのみ無敵
          projInv: 〃 飛び道具に対してのみ無敵（弾抜け）
          mvAfterStart: 1 = 発生(s)までその場で溜めてから、発生と同時に前進する
@@ -1037,30 +1040,28 @@ das<!doctype html>
         }
       },
       {
-        id: 1, name: '肉弾キャラ', role: 'インファイター・一発逆転', spd: 4.35, col: '#ff6b6b',
+        id: 1, name: '肉弾キャラ', role: 'インファイター・一発逆転', spd: 6.75, col: '#ff6b6b',
         chKey: 'NP', chTo: 'NPM', superName: 'ファイナル・ブレイカー', gbName: 'ヘビーナックル',
         M: {
-          NP:  { n: 'スマッシュ',               s: 6,  a: 3,  t: 40, d: 1100, r: 1.55, h: 'h', g: -7,  v: 3,  c: 1 },
+          NP:  { n: 'スマッシュ',               s: 6,  a: 3,  t: 20, d: 1100, r: 1.55, h: 'h', g: -7,  v: 3,  c: 1 },
           NPM: { n: 'ギガント・インパクト',     s: 1, a: 8,  t: 14, d: 1700, r: 2.35, h: 'h', g: 4,   v: 0,  chip: 300, C: 1 },   // ダウンしない(kd削除)
           FP:  { n: '肘打ち(中段)',             s: 8, a: 3,  t: 36, d: 750,  r: 1.4,  h: 'm', g: -4,  v: 2,  c: 1 },
           DP:  { n: 'ショートパンチ',           s: 4,  a: 2,  t: 10, d: 300,  r: 1.15, h: 'h', g: -2,   v: 6,  c: 1, rapid: 1 },
           BP:  { n: 'ヘビーボディブロー',       s: 7,  a: 3,  t: 34, d: 900,  r: 1.3,  h: 'h', g: -4,  v: 3,  c: 1, noPush: 1 },
-          NK:  { n: 'ハイキック',               s: 6,  a: 3,  t: 18, d: 550,  r: 2,    h: 'h', g: 1,   v: 3, },
-          FK:  { n: '膝蹴り',                   s: 9,  a: 3,  t: 25, d: 950,  r: 2.5,  h: 'h', g: 1,   v: 3,  mv: 1.5,},
-          DK:  { n: 'ローキック',               s: 6,  a: 3,  t: 20, d: 800,  r: 2.5,  h: 'l', g: 1,   v: 0,  kd: 45 },
-          BK:  { n: 'バックスピンキック',       s: 9,  a: 3,  t: 23, d: 1050, r: 3,    h: 'h', g: 1,   v: 3,  mv: -1.5, },
+          NK:  { n: 'ハイキック',               s: 6,  a: 3,  t: 38, d: 750,  r: 1.3,    h: 'h', g: 1,   v: 3, },
+          FK:  { n: '膝蹴り',                   s: 9,  a: 3,  t: 35, d: 950,  r: 1.5,  h: 'h', g: 1,   v: 3,  mv: 1.5},
+          DK:  { n: 'ローキック',               s: 5,  a: 3,  t: 18, d: 400,  r: 1,  h: 'l', g: -1,   v: 5, rapid: 1},
+          BK:  { n: 'バックスピンキック',       s: 9,  a: 3,  t: 38, d: 1050, r: 2,    h: 'h', g: 1,   v: 3,  mv: -1.5, },
           JP:  { n: 'ジャンプP',                s: 5,  a: 4,  t: 24, d: 950,  r: 1.0,  h: 'm', g: -4,  v: 4,  air: 1 },
           JK:  { n: 'ジャンプK',                s: 6,  a: 6,  t: 28, d: 600,  r: 1.55, backR: 1.4, h: 'm', g: -3, v: 3, air: 1 },
-          NS:  { n: 'ショルダータックル',       s: 22, a: 7,  t: 38, d: 1000, r: 0.5, h: 'h', g: 7,   v: 9,  mv: 19, mvAfterStart: 1, exC: 1 },
+          NS:  { n: 'ショルダータックル',       s: 22, a: 7,  t: 38, d: 1000, r: 0.1, h: 'h', g: 7,   v: 9,  mv: 19, mvAfterStart: 1, exC: 1 },
           FS:  { n: 'サマーソルト',             s: 5,  a: 7,  t: 41, d: 1200, r: 1.25, h: 'h', g: -20, v: 0,  kd: 95, up: 1, aaInv: 8 },
-          DS:  { n: 'デストロイサプレックス',   s: 8,  a: 2,  t: 60, d: 2500, r: 1.8, th: 1, thType: 'suplex', cmd: 1, kd: 42 },
-          BS:  { n: 'ダッシュスルー(弾抜け)',   s: 1,  a: 9, t: 9, mv: 1.2,  projInv: 22, dashDerive: { P: 'BSP', K: 'BSK' } },
-          BSP: { n: 'ラッシュフック(中段)',     s: 7,  a: 3,  t: 26, d: 800,  r: 2.05, h: 'm', g: -5,  v: 5 },
-          BSK: { n: 'ラッシュスライディング',   s: 7,  a: 5,  t: 28, d: 800,  r: 1.75, h: 'l', g: -3,  v: 0,  kd: 48, mv: 6.2, lowSlide: 1},
-          XN:  { n: 'EXショルダータックル',     s: 8, a: 7,  t: 24, d: 1300, r: 0.1,  h: 'h', g: 8,   v: 11, mv: 22, mvAfterStart: 1 },
+          DS:  { n: 'デストロイサプレックス',   s: 8,  a: 2,  t: 60, d: 1500, r: 1.8, th: 1, thType: 'suplex', cmd: 1, pushFar: 1, kd: 32 },
+          BS:  { n: 'ダッシュステップ(高速ステップ)',   s: 5,  t: 15, mv: 10},
+          XN:  { n: 'EXショルダータックル',     s: 8, a: 7,  t: 24, d: 1300, r: 0.01,  h: 'h', g: 8,   v: 11, mv: 22, mvAfterStart: 1 },
           XF:  { n: 'EXサマーソルト',           s: 3,  a: 7,  t: 39, d: 1430, r: 1.3,  h: 'h', g: -20, v: 0,  kd: 100, up: 1, inv: 12 },
-          XD:  { n: 'EXデストロイサプレックス', s: 5,  a: 2,  t: 64, d: 3300, r: 1.7,  th: 1, thType: 'suplex', cmd: 1, kd: 45 },
-          XB:  { n: 'EXダッシュスルー',         s: 1,  a: 20, t: 25, mv: 8.4,  projInv: 22, dashDerive: { P: 'XBSP', K: 'XBSK' } },
+          XD:  { n: 'EXデストロイサプレックス', s: 5,  a: 2,  t: 64, d: 3300, r: 1.7,  th: 1, thType: 'suplex', cmd: 1, kd: 35 , pushFar: 1},
+          XB:  { n: 'EXダッシュスルー',         s: 1,  a: 20, t: 20, mv: 9.4,  projInv: 22, dashDerive: { P: 'XBSP', K: 'XBSK' } },
           XBSP:{ n: 'EXラッシュフック(中段)',   s: 5,  a: 3,  t: 24, d: 1040, r: 2.15, h: 'm', g: -4,  v: 9 },
           XBSK:{ n: 'EXラッシュスライディング', s: 5,  a: 5,  t: 26, d: 1040, r: 1.8,  h: 'l', g: 5,  v: 0,  kd: 52, mv: 8, lowSlide: 1 },
           GB:  { n: 'ヘビーナックル(GB)',       s: 25, a: 3,  t: 52, d: 300,  r: 1.95, h: 'h', kd: 45,  gb: 60, mv: 2.2 },
@@ -1076,7 +1077,7 @@ das<!doctype html>
           NP:  { n: '大振りなぎ払い',             s: 16, a: 4,  t: 46, d: 1000, r: 1.8,  h: 'h', g: -9,  v: 2,  c: 1 },
           FP:  { n: 'ロングハンド(中段)',         s: 14, a: 3,  t: 38, d: 650,  r: 1.7,  h: 'm', g: -5,  v: 2,  c: 1 },
           DP:  { n: 'つっつきパンチ',             s: 5,  a: 2,  t: 15, d: 300,  r: 1.0,  h: 'h', g: -1,  v: 2,  c: 1, rapid: 1 },
-          BP:  { n: '押し返し手裏剣',             s: 12, a: 3,  t: 36, d: 700,  r: 1.4,  h: 'h', g: -4,  v: 3,  pushFar: 1, c: 1 },
+          BP:  { n: 'ハーフハート',             s: 16, a: 3,  t: 39, d: 700,  r: 0.01,  h: 'h', g: -4,  v: 3,  pushFar: 1, c: 1, antiAir: 1 },   // antiAir:1 = 腕を振り上げて頭上にも当たる(最低限の対空)
           NK:  { n: 'フロントキック',             s: 9,  a: 3,  t: 33, d: 600,  r: 2.0,  h: 'h', g: 1,   v: 3,   },
           FK:  { n: '踏みつけ(中段)',             s: 13, a: 3,  t: 35, d: 700,  r: 1.5,  h: 'm', g: 1,   v: 3,  mv: 1.4,  },
           DK:  { n: '影払い',                     s: 9,  a: 3,  t: 38, d: 600,  r: 1.8,  h: 'l', g: 1,   v: 0,  kd: 110,  },
@@ -1086,11 +1087,11 @@ das<!doctype html>
           NS:  { n: 'ブーメランストック',         s: 7,  a: 0,  t: 34, stockAdd: 1 },
           NSM: { n: 'タメブーメラン(ゲージ削り)', s: 2,  a: 0,  t: 10, fb: 's_boom_chg', exC: 1 },//これだけ特別
           FS:  { n: 'ブーメランスロー',           s: 7,  a: 0,  t: 14, fb: 's_boom', needStock: 1 },
-          DS:  { n: 'エナジーソウ(ゲージ強奪)',   s: 8,  a: 2,  t: 44, d: 500, r: 1.5, th: 1, thType: 'drain', cmd: 1, steal: .75, kd: 62 },
+          DS:  { n: 'エナジーソウ(ゲージ強奪)',   s: 8,  a: 2,  t: 44, d: 500, r: 1.5, th: 1, thType: 'drain', cmd: 1, steal: .75, kd: 62 , pushFar: 1},
           BS:  { n: 'シャドウスライド(弾抜け)',   s: 9,  a: 14, t: 38, d: 700,  r: 1.7,  h: 'l', g: -16, v: 0,  kd: 57, mv: 4.2, projInv: 24, lowSlide: 1, crossupGuard: 1, exC: 1 },
           XN:  { n: 'EXブーメランストック(全充填)', s: 5, a: 0, t: 16, stockMax: 1 },
           XF:  { n: 'EXブーメランスロー',         s: 6,  a: 0,  t: 12, fb: 's_boom_ex' },
-          XD:  { n: 'EXエナジーソウ(大強奪)',     s: 5,  a: 2,  t: 44, d: 750, r: 1.1,  th: 1, thType: 'drain', cmd: 1, steal: 1.5, kd: 65 },
+          XD:  { n: 'EXエナジーソウ(大強奪)',     s: 5,  a: 2,  t: 44, d: 750, r: 1.1,  th: 1, thType: 'drain', cmd: 1, steal: 1.5, pushFar: 1, kd: 65 },
           XB:  { n: 'EXシャドウスライド',         s: 6,  a: 14, t: 34, d: 950,  r: 1.8,  h: 'l', g: -8,  v: 0,  kd: 72, mv: 7.5, projInv: 24, lowSlide: 1, crossupGuard: 1 },
           GB:  { n: 'ロングブレイカー(GB)',       s: 28, a: 3,  t: 54, d: 300,  r: 2.3,  h: 'h', kd: 45,  gb: 60, exC: 1 },
           SUP: { n: 'カオス・ジェネレーター',     s: 0,  a: 0,  t: 1, chaos: 1 },
@@ -2038,6 +2039,14 @@ das<!doctype html>
             if (!p.cr) lB = [-20, -10];
             extK = reachPx * 0.9;
           }
+        } else if (m.antiAir) {
+          // 対空パンチ：発生前は腕を下へ引き、発生と同時に前上方へ振り上げる（aF=[上腕角, 前腕角] 0=下 90=前 180=上）
+          if (isWindup) {
+            ln = -9 * wup; lF = [32, 12]; lB = [-32, -12];
+            aF = [-30 * wup, 25]; aB = [55, 130];
+          } else {
+            aF = [-30 + 180 * q, 25 + 140 * q]; aB = [55, 130]; ln = 5 * q; extF = reachPx * 0.6;
+          }
         } else if (m.k.includes('P') || m.k.startsWith('TC') || m.k === 'NPM') {
           const heavy = (m.k === 'NP' || m.k === 'NPM' || m.k === 'BP');
           if (isWindup) {
@@ -2185,6 +2194,10 @@ das<!doctype html>
         }
         const x0 = po.shoulder.x;
         return [{ x1: Math.min(x0, xFront), y1: po.handF.y - HB.airPunchHalf, x2: Math.max(x0, xFront), y2: po.handF.y + HB.airPunchHalf, kind: 'strike' }];
+      }
+      if (m.antiAir) {   // 対空パンチ：体の前〜頭上に判定（HB.antiAir*）。リーチは r で伸縮
+        const x0 = p.x - p.f * HB.antiAirBack;
+        return [{ x1: Math.min(x0, xFront), y1: y - HB.antiAirTop, x2: Math.max(x0, xFront), y2: y - HB.antiAirBottom, kind: 'strike' }];
       }
       if (NORM_KEYS.has(m.k)) {   // 通常技
         const isKick = m.k.includes('K');
@@ -2457,9 +2470,10 @@ das<!doctype html>
           if (p.fr >= p.thDur) {
             if (def) {
               def.y = 0;
-              const dmg = m.d;
+              const dmg = Math.round(m.d * (def.pun ? TUNE.counterDmgMul : 1));   // パニッシュ中の投げはダメージ増加
               def.hp -= dmg;
-              def.g = Math.min(4, def.g + dmg / 3400);
+              def.g = Math.min(4, def.g + dmg / TUNE.gaugePerDamage);
+              def.cd = dmg; def.dn = 1; def.cs = 90;   // ダメージ表示（「1技コンボ / N ダメージ（パニッシュ）」）
               if (!NET.active && !LOCAL_VS.active && def === E) {
                 TRN.lastDmg = dmg; TRN.lastScale = 100;
                 if (dmg > TRN.maxComboDmg) TRN.maxComboDmg = dmg;
@@ -2584,6 +2598,12 @@ das<!doctype html>
       return 0;
     }
 
+    // ★【調整】パニッシュ：相手が技の「後隙」（持続が終わった後）の間に当てると成立。ダメージ ×TUNE.counterDmgMul。
+    //   通常攻撃(hit)・投げ(tryHit/executeThrowAnim)の両方でこの判定を使う。
+    function isPunishable(o) {
+      return (o.s === 'atk' && o.fr >= o.m.s + (o.m.a || 0)) || (!NET.active && !LOCAL_VS.active && o === E && TRN.counter === 1);
+    }
+
     function tryHit(p, o, m) {
       if (isInv(o, 0)) return;
       if (o.s === 'atk' && o.m.aaInv && o.fr <= o.m.aaInv && (p.y < 0 || p.s === 'air')) return;
@@ -2596,6 +2616,9 @@ das<!doctype html>
         const hitThrow = hBoxes.some(hb => dBoxes.some(db => rectsOverlap(hb, db)));
         if (!hitThrow) return;
         p.hit = 1;
+        o.pun = isPunishable(o);   // 投げが入った瞬間に、相手が後隙ならパニッシュ確定
+        o.cd = 0;
+        if (o.pun) pnT = 70;
         if (m.cmd) {
           executeThrowAnim(p, o, m, p.f);
         } else {
@@ -2668,7 +2691,7 @@ das<!doctype html>
 
       const wasAir = o.y < 0;
       if (o.s !== 'hs') {
-        o.pun = (o.s === 'atk' && o.fr >= o.m.s + (o.m.a || 0)) || (!NET.active && !LOCAL_VS.active && o === E && TRN.counter === 1);
+        o.pun = isPunishable(o);
         o.cd = 0;
       }
       const sid = m.sid || p.mid; o.cmb = o.s === 'hs' ? o.cmb + (o.lsid === sid ? 0 : 1) : 1; o.lsid = sid;
@@ -4402,12 +4425,27 @@ das<!doctype html>
 
     /* ======================= 変更内容（設定⚙ → 📝 変更内容） ======================= */
     const CHANGELOG = [
+       {
+        v: '3.1.0', date: '2026/11/21', items: [
+          '<b>緊急アップデート</b>',
+          '対戦において肉弾キャラが、<b>K技を軽快に連打し気分で掴むという極めて不快な戦法が多数見られました</b>',
+          '運営はこれを重く捉え肉弾キャラの通常技大きく<b>下方修正</b>を施しました',
+          '具体的には<b>リーチの減少、全体硬直の増加、ダメージの減少</b>を行いました<b>DKはダウンを奪えない性能</b>になりました',
+          'そして主軸の技がなくなってしまった肉弾キャラには、あまり使われていなかったBSPの技性能の見直しをして使いやすい<b>移動技</b>に仕上げました',
+          'そして機動力を限界まで引き上げ相手を翻弄して戦うキャラクターに仕上げました',
+          '<b>特殊キャラの対空技について</b>',
+          '特殊キャラには対空技がなくとりあえず飛ぶという極めて害悪な戦法が多数見られました。',
+          'そこでBPの技を変更して最低限の対空性能があるハーフハートという技に変更しました'
+        ]
+      },
       {
-        v: GAME_VER, date: '2026/11/20', items: [
+        v: '3.0.0', date: '2026/11/20', items: [
+          '<b>投げ属性の技がパニッシュ</b>になるようにしました。相手が技の後隙（持続が終わった後）の時に投げが成立するとパニッシュとなり、ダメージが増加（×1.2）、画面フラッシュとダメージ表示の「（パニッシュ）」が出ます。通常投げ・コマンド投げ・ゲージ強奪すべて対象です。',
+          '<b>特殊キャラの後ろP</b>が、腕を振り上げて体の前〜頭上に当たる<b>対空技</b>になりました（無敵なし・最低限の対空）。範囲は <b>HB.antiAir*</b>、長さは技の <b>r</b> で調整できます。',
           '<b>EXへの派生をP技のみに統一</b>：通常必殺と同じく、EXにキャンセル（ヒット/ガード後）できるのも、技の出始めにEXへ差し替えできるのもP技（5P/6P/2P/4P・肉弾のタメP）だけです。K技・必殺技からはEXに繋がりません。※K+SPの同時押しは、ボタンを同じフレームで押した時だけEXになります。',
           '<b>通常投げの後の距離</b>をさらに広げました（投げた側から105px → 140px）。投げからの起き攻めを防止します',
           '<b>数値を調整しやすくしました</b>：コード先頭に「★調整ガイド」を追加。技データ表・飛び道具の凡例コメント、ジャンプ/のけぞり/ヒットストップ/コンボ補正/ダウン/投げ時間などの <b>TUNE</b>、攻撃・やられ・押し合い判定の <b>HB</b>、距離の <b>SEP</b> にまとめ、すべて説明コメントを付けました（挙動は変えていません）。',
-          '<b>バージョン3.0.0</b>：オンライン対戦・ローカル対戦の開始時に「<b>GO!</b>」、体力0決着時に「<b>K.O.!</b>」、時間切れ時に「<b>TIME UP!</b>」を表示し、勝者キャラクターの強調バッジ・バナーで勝者が一目でわかるようにしました。',
+          'オンライン対戦・ローカル対戦の開始時に「<b>GO!</b>」、体力0決着時に「<b>K.O.!</b>」、時間切れ時に「<b>TIME UP!</b>」を表示し、勝者キャラクターの強調バッジ・バナーで勝者が一目でわかるようにしました。',
           '<b>投げ・ダウン調整</b>：通常投げの硬直差を投げた側 <b>+25F有利</b> に設定し、コマ投げの投げ後距離を拡大。全体のダウン時間も短縮しました。',
           '<b>弾キャラ調整</b>：地上弾の発生・弾速を少し遅くし、EX弾の全体フレーム短縮・弾速アップ・ガード硬直増加を実施。画面上に弾がある間は弾技を撃てないよう修正し、EX弾の無駄撃ちを防止。エナジーナックル／EX版は発生前に大きく身をかがめるモーション＆低やられ判定を追加し、リーチを短縮（EX版は通常版より強化）。',
           '<b>肉弾キャラ調整</b>：ショルダータックルは発生までその場にとどまり、発生と同時に高速突進＆ガード・ヒット硬直増加で近距離の間合いに持ち込めるよう強化。ダッシュスルーの移動距離増加、P派生リーチ延長、K派生を低姿勢スライディング（通常弾・ブーメランをくぐり、タメ弾は当たる）に変更。各種技のダウンフレームの調整',
