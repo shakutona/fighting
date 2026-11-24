@@ -732,7 +732,7 @@
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
-    const GAME_VER = '3.4.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
+    const GAME_VER = '3.6.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
     const CHORD_WIN = 4;              // 同時押し(P+K投げ / SP+P,K でEX 等)とみなす最大フレーム差
     // ★【調整】距離(px)：
     const SEP = {
@@ -791,7 +791,7 @@
       walkBackRatio: .75,         // 後ろ歩きの速度倍率（各キャラの spd に掛ける。1で前進と同じ）
       walkGaugeEvery: 5,         // 前進を何フレーム続けるごとにゲージが貯まるか
       walkGaugeGain: .045,        // 上記で貯まるゲージ量（1.0 = ゲージ1本）
-      jumpPreFrames: 12,          // ジャンプ入力から離陸までの溜めフレーム（この間は地上で無防備）
+      jumpPreFrames: 6,          // ジャンプ入力から離陸までの溜めフレーム（この間は地上で無防備）
       jumpVy: -9.6,               // ジャンプの初速（マイナス=上。絶対値が大きいほど高く跳ぶ）
       jumpGravity: .36,           // 空中の重力（大きいほど早く落ちる＝滞空が短い）
       jumpAirSpeed: 2.1,          // 前/後ろジャンプの横移動速度（px/フレーム）
@@ -883,7 +883,7 @@
       hopStartY: -36, hopVy: -6.8, hopGravity: .34,
 
       /* --- 飛び道具の共通設定 --- */
-      fbSpawnX: 30,               // 飛び道具が出る位置（自分の前方 px）
+      fbSpawnX: 3,               // 飛び道具が出る位置（自分の前方 px）
       fbSpawnY: 45,               // 〃 高さ（地面から px）
       fbSpawnYAirType: 42,        // 〃 斜め下に飛ぶ弾(vy指定あり)の高さ
       beamLife: 20,               // ビーム(超必殺)が残るフレーム
@@ -919,8 +919,8 @@
       armF: 6, armB: 5,             // 前腕/後ろ腕の太さ
       legF: 7, legB: 6,             // 前脚/後ろ脚の太さ
       /* ---- やられ判定（特殊姿勢） ---- */
-      windupHalfW: 22, windupTop: 26,           // エナジーナックル発生前の低姿勢（lowWindup）
-      slideFront: 34, slideBack: 26, slideTop: 30, // スライディング中（lowSlide）：前/後ろの長さ・高さ
+      windupHalfW: 6, windupTop: 26,           // エナジーナックル発生前の低姿勢（lowWindup）
+      slideFront: 75, slideBack: 0, slideTop: 75, // スライディング中（lowSlide）：前/後ろの長さ・高さ
       /* ---- やられ判定（ダウン中・起き上がり） ---- */
       downHeadX: 48, downHeadHalfW: 10, downHeadTop: 20, downHeadBottom: 3,    // 倒れている時の頭
       downBodyBack: 36, downBodyFront: 26, downBodyTop: 16, downBodyBottom: 2, // 倒れている時の体
@@ -1043,7 +1043,7 @@
     */
     const CHARS = [
       {
-        id: 0, name: '弾キャラ', role: '砲台・地上統制', spd: 2.05, col: '#4aa3ff',
+        id: 0, name: '弾キャラ', role: '砲台・地上統制', spd: 3.2, col: '#4aa3ff',
         chKey: 'NS', chTo: 'NSM', superName: 'ギガ・ブラスター', gbName: 'ショックブロー',
         M: {
           NP:  { n: 'ヘビーブロー',         s: 14, a: 3,  t: 42, d: 1000, r: 1.6,  h: 'h', g: -8,  v: 2,  c: 1 },
@@ -1059,11 +1059,11 @@
           NS:  { n: '地上弾',               s: 11, a: 0,  t: 48, fb: 'z_norm', },
           NSM: { n: 'メガ・キャノン',       s: 1,  a: 0,  t: 12,  fb: 'z_mega',  },
           FS:  { n: 'ライジングアッパー',   s: 5,  a: 10, t: 55, d: 1000, r: 1.0,  h: 'h', g: -30, v: 0,  kd: 110, up: 1, aaInv: 10 },
-          DS:  { n: 'エア・シューター',     s: 15, a: 0,  t: 60, d: 550,  fb: 'z_air', hop: 1,  },
+          DS:  { n: 'エア・シューター',     s: 15, a: 0,  t: 30, fb: 'z_air', hop: 1,  },
           BS:  { n: 'エナジーナックル',     s: 13, a: 3,  t: 29, d: 1000, r: 1.2, h: 'm', g: 5,   v: 10, lowWindup: 1,  },
           XN:  { n: 'EX地上弾',             s: 5,  a: 0,  t: 16, fb: 'z_ex' },
           XF:  { n: 'EXライジングアッパー', s: 3,  a: 10, t: 60, d: 1300, r: 1.05, h: 'h', g: -44, v: 0,  kd: 140, up: 1, inv: 14 },
-          XD:  { n: 'EXエア・シューター',   s: 9,  a: 0,  t: 35, fb: 'z_air_ex', hop: 1 },
+          XD:  { n: 'EXエア・シューター',   s: 9,  a: 0,  t: 25, fb: 'z_air_ex', hop: 1 },
           XB:  { n: 'EXエナジーナックル',   s: 9,  a: 3,  t: 22, d: 1300, r: 1.85, h: 'm', g: 11,  v: 22, lowWindup: 1 },
           GB:  { n: 'ショックブロー(GB)',   s: 28, a: 3,  t: 54, d: 300,  r: 1.5,  h: 'h', kd: 45,  gb: 60 },
           SUP: { n: 'ギガ・ブラスター',     s: 7, a: 0,  t: 50, fb: 'z_sup', inv: 14 },
@@ -1087,12 +1087,12 @@
           JP:  { n: 'ジャンプP',                s: 5,  a: 4,  t: 24, d: 950,  r: 1.0,  h: 'm', g: -4,  v: 4,  air: 1 },
           JK:  { n: 'ジャンプK',                s: 6,  a: 6,  t: 28, d: 600,  r: 1.55, backR: 1.4, h: 'm', g: -3, v: 3, air: 1 },
           NS:  { n: 'ショルダータックル',       s: 22, a: 7,  t: 38, d: 1000, r: 0.1, h: 'h', g: 7,   v: 9,  mv: 19, mvAfterStart: 1, exC: 1 },
-          FS:  { n: 'サマーソルト',             s: 5,  a: 7,  t: 41, d: 1200, r: 1.25, h: 'h', g: -20, v: 0,  kd: 95, up: 1, aaInv: 8 },
+          FS:  { n: 'サマーソルト',             s: 5,  a: 7,  t: 53, d: 1200, r: 1.25, h: 'h', g: -32, v: 0,  kd: 85, up: 1, aaInv: 8 },
           DS:  { n: 'デストロイサプレックス',   s: 8,  a: 2,  t: 60, d: 1500, r: 1.8, th: 1, thType: 'suplex', cmd: 1, pushFar: 1, kd: 32 },
-          BS:  { n: 'ダッシュステップ(高速ステップ)',   s: 5,  t: 15, mv: 10},
-          XN:  { n: 'EXショルダータックル',     s: 8, a: 7,  t: 24, d: 1300, r: 0.01,  h: 'h', g: 8,   v: 11, mv: 22, mvAfterStart: 1 },
-          XF:  { n: 'EXサマーソルト',           s: 3,  a: 7,  t: 39, d: 1430, r: 1.3,  h: 'h', g: -20, v: 0,  kd: 100, up: 1, inv: 12 },
-          XD:  { n: 'EXデストロイサプレックス', s: 5,  a: 2,  t: 64, d: 3300, r: 1.7,  th: 1, thType: 'suplex', cmd: 1, kd: 35 , pushFar: 1},
+          BS:  { n: 'ダッシュステップ(高速ステップ)',   s: 5,  t: 13, mv: 10},
+          XN:  { n: 'EXショルダータックル',     s: 1, a: 18,  t: 20, d: 1300, r: 0.01,  h: 'h', g: 7,   v: 18, mv: 32, mvAfterStart: 1 },
+          XF:  { n: 'EXサマーソルト',           s: 3,  a: 7,  t: 51, d: 1430, r: 1.3,  h: 'h', g: -32, v: 0,  kd: 83, up: 1, inv: 12 },
+          XD:  { n: 'EXデストロイサプレックス', s: 5,  a: 2,  t: 64, d: 3300, r: 2.1,  th: 1, thType: 'suplex', cmd: 1, kd: 35 , pushFar: 1},
           XB:  { n: 'EXダッシュスルー',         s: 1,  a: 20, t: 20, mv: 9.4,  projInv: 22, dashDerive: { P: 'XBSP', K: 'XBSK' } },
           XBSP:{ n: 'EXラッシュフック(中段)',   s: 5,  a: 3,  t: 24, d: 1040, r: 2.15, h: 'm', g: -4,  v: 9 },
           XBSK:{ n: 'EXラッシュスライディング', s: 5,  a: 5,  t: 26, d: 1040, r: 1.8,  h: 'l', g: 5,  v: 0,  kd: 52, mv: 8, lowSlide: 1 },
@@ -1118,16 +1118,16 @@
           JP:  { n: 'ジャンプP',                  s: 5,  a: 4,  t: 24, d: 850,  r: 1.0,  h: 'm', g: -4,  v: 4,  air: 1 },
           JK:  { n: 'ジャンプK',                  s: 7,  a: 6,  t: 28, d: 550,  r: 1.5,  backR: 1.4, h: 'm', g: -3, v: 3, air: 1 },
           NS:  { n: 'ブーメランストック',         s: 7,  a: 0,  t: 34, stockAdd: 1 },
-          NSM: { n: 'タメブーメラン(ゲージ削り)', s: 2,  a: 0,  t: 10, fb: 's_boom_chg', exC: 1 },//これだけ特別
+          NSM: { n: 'タメブーメラン(ゲージ削り)', s: 2,  a: 0,  t: 10, fb: 's_boom_chg', needStock: 1, exC: 1 },//これだけ特別
           FS:  { n: 'ブーメランスロー',           s: 7,  a: 0,  t: 14, fb: 's_boom', needStock: 1 },
           DS:  { n: 'エナジーソウ(ゲージ強奪)',   s: 8,  a: 2,  t: 44, d: 500, r: 1.5, th: 1, thType: 'drain', cmd: 1, steal: .75, kd: 62 , pushFar: 1},
-          BS:  { n: 'シャドウスライド(弾抜け)',   s: 9,  a: 14, t: 48, d: 700,  r: 1.4,  h: 'l', g: -16, v: 0,  kd: 77, mv: 4.2, projInv: 24, lowSlide: 1, crossupGuard: 1, exC: 1 },
+          BS:  { n: 'シャドウスライド(弾抜け)',   s: 14,  a: 14, t: 48, d: 700,  r: 1.4,  h: 'l', g: -16, v: 0,  kd: 77, mv: 4.2, projInv: 24, lowSlide: 1, crossupGuard: 1, exC: 1 },
           XN:  { n: 'EXブーメランストック(全充填)', s: 5, a: 0, t: 16, stockMax: 1 },
-          XF:  { n: 'EXブーメランスロー',         s: 6,  a: 0,  t: 12, fb: 's_boom_ex' },
+          XF:  { n: 'EXブーメランスロー',         s: 6,  a: 0,  t: 12, fb: 's_boom_ex', needStock: 1 },
           XD:  { n: 'EXエナジーソウ(大強奪)',     s: 5,  a: 2,  t: 44, d: 750, r: 1.1,  th: 1, thType: 'drain', cmd: 1, steal: 1.5, pushFar: 1, kd: 65 },
           XB:  { n: 'EXシャドウスライド',         s: 6,  a: 20, t: 30, d: 950,  r: 1.8,  h: 'l', g: -8,  v: 0,  kd: 92, mv: 9.5, projInv: 24, lowSlide: 1, crossupGuard: 1 },
           GB:  { n: 'ロングブレイカー(GB)',       s: 28, a: 3,  t: 54, d: 300,  r: 2.3,  h: 'h', kd: 45,  gb: 60, exC: 1 },
-          SUP: { n: 'カオス・ジェネレーター',     s: 0,  a: 0,  t: 1, chaos: 1 },
+          SUP: { n: 'カオス・ジェネレーター',     s: 0,  a: 0,  t: 0, chaos: 1 },
           T:   { n: '投げ',                       s: 5,  a: 1,  t: 35, d: 1000, r: .9,   th: 1, thType: 'slam', kd: 60 },
           REV: { n: '無敵切り返し',               s: 1,  a: 6,  t: 40, d: 0,    r: 1.9,  h: 'h', inv: 44, rev: 1 }
         }
@@ -1147,15 +1147,15 @@
          gDrain: ガードされた時に相手のゲージを減らす量   chip: ガードされても削れるダメージ
     */
     const FBS = {
-      z_norm:    { pwr: 1, d: 700,  h: 'h', g: 18, v: 24, spd: 10.5, rad: 10, col: '#ffb347', one: 1 },
-      z_ex:      { pwr: 2, d: 910,  h: 'h', g: 30, v: 32, kd: 42, spd: 40,   rad: 12, col: '#6fe3ff', one: 1 },
-      z_mega:    { pwr: 2, d: 1050, h: 'h', g: 50, v: 36, spd: 2,    rad: 15, col: '#ff7a45', one: 3, twice: 1 },
-      z_air:     { pwr: 1, d: 300,  h: 'h', g: 16, v: 22, spd: 5,    vy: 5,   rad: 10, col: '#ffb347', one: 1 },
-      z_air_ex:  { pwr: 2, d: 850,  h: 'm', g: 18, v: 24, spd: 7.5,  vy: 5.4, rad: 11, col: '#6fe3ff', one: 1, twice: 1 },
+      z_norm:    { pwr: 1, d: 700,  h: 'h', g: 18, v: 24, spd: 9, rad: 10, col: '#ffb347', one: 1 },
+      z_ex:      { pwr: 2, d: 1000,  h: 'h', g: 30, v: 32, kd: 70, spd: 30,   rad: 12, col: '#6fe3ff', twice: 1},
+      z_mega:    { pwr: 2, d: 1050, h: 'h', g: 50, v: 36, spd: 3.5,   rad: 20, col: '#ff7a45', one: 1, chip:100},
+      z_air:     { pwr: 1, d: 700,  h: 'l', g: 25, v: 28, spd: 6,    vy: 5,   rad: 10, col: '#ffb347', one: 1 },
+      z_air_ex:  { pwr: 2, d: 850,  h: 'm', g: 30, v: 50, spd: 7.5,  vy: 5.4, rad: 11, col: '#6fe3ff', twice: 1 },
       z_sup:     { pwr: 3, d: 3000, h: 'h', g: 30, v: 0,  kd: 48, spd: 28,   rad: 26, col: '#4aa3ff', beam: 1, chip: 100 },
-      s_boom:    { pwr: 1, d: 550,  h: 'h', g: 16, v: 22, spd: 3,    retSpd: 4.2, maxLife: 74, rad: 11, col: '#c07aff', boom: 1, gDrain: .4, chip: 0 },
-      s_boom_ex: { pwr: 2, d: 750,  h: 'h', g: 18, v: 24, spd: 5.8,  retSpd: 5.0, maxLife: 74, rad: 14, col: '#ff77e9', boom: 1, gDrain: .8, chip: 0 },
-      s_boom_chg:{ pwr: 2, d: 800,  h: 'h', g: 24, v: 28, spd: 5.2,  retSpd: 4.5, maxLife: 74, rad: 16, col: '#ffe250', boom: 1, gDrain: 1.5, chip: 0 },
+      s_boom:    { pwr: 1, d: 550,  h: 'h', g: 16, v: 22, spd: 3,    retSpd: 4.2, maxLife: 74, rad: 11, col: '#c07aff', boom: 1, gDrain: .1, chip: 0 },
+      s_boom_ex: { pwr: 2, d: 750,  h: 'h', g: 18, v: 24, spd: 5.8,  retSpd: 5.0, maxLife: 74, rad: 14, col: '#ff77e9', boom: 1, gDrain: .2, chip: 0 },
+      s_boom_chg:{ pwr: 2, d: 800,  h: 'h', g: 24, v: 28, spd: 5.2,  retSpd: 4.5, maxLife: 74, rad: 16, col: '#ffe250', boom: 1, gDrain: .35, chip: 0 },
       s_chaos_m: { pwr: 1, d: 800,  h: 'm', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#ff6b9d', chip: 0 },
       s_chaos_l: { pwr: 1, d: 800,  h: 'l', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#5ce1e6', chip: 0 }
     };
@@ -2190,7 +2190,7 @@
         }
         // スライディング（K派生・シャドウスライド）：地面から30pxの低姿勢やられ判定
         // （通常弾下端G-35・ブーメラン下端G-34はくぐり抜け、タメ弾下端G-30・タメブーメラン下端G-29は当たる）
-        if (p.m.lowSlide) {
+       if (p.m.lowSlide) {
           const xFront = p.x + p.f * HB.slideFront, xBack = p.x - p.f * HB.slideBack;
           return [
             { x1: Math.min(xFront, xBack), y1: y - HB.slideTop, x2: Math.max(xFront, xBack), y2: y - 2, part: 'body' }
@@ -2199,6 +2199,29 @@
       }
       // 通常時：ポーズ(getPose)の関節位置を基準に、頭・胴・腕・脚の箱を作る
       const po = getPose(p);
+      const boxes = [
+        ptBox(po.head, HB.headW, HB.headH, 'head'),
+        segBox(po.shoulder, po.hip, HB.torso, 'torso'),
+        segBox(po.shoulder, po.handF, HB.armF, 'armF'),
+        segBox(po.shoulder, po.handB, HB.armB, 'armB')
+      ];
+      // ジャンプ攻撃中（p.m.air）は下半身（脚）を無敵にする（単なるジャンプ中 p.s === 'air' はそのまま）
+      if (!(p.s === 'atk' && p.m && p.m.air)) {
+        boxes.push(
+          segBox(po.hip, po.footF, HB.legF, 'legF'),
+          segBox(po.hip, po.footB, HB.legB, 'legB')
+        );
+      }
+      return boxes;
+      // ジャンプ攻撃中（p.m.air）は下半身（脚）を無敵にする（単なるジャンプ中 p.s === 'air' はそのまま）
+      if (!(p.s === 'atk' && p.m && p.m.air)) {
+        boxes.push(
+          segBox(po.hip, po.footF, HB.legF, 'legF'),
+          segBox(po.hip, po.footB, HB.legB, 'legB')
+        );
+      }
+      return boxes;
+      // 通常時：ポーズ(getPose)の関節位置を基準に、頭・胴・腕・脚の箱を作る
       return [
         ptBox(po.head, HB.headW, HB.headH, 'head'),
         segBox(po.shoulder, po.hip, HB.torso, 'torso'),
@@ -2284,6 +2307,9 @@
       if (p.cid !== 0) return false;
       return fbs.some(b => b.o === p && !b.dead && FBS[b.kind] && FBS[b.kind].one && !FBS[b.kind].boom);
     }
+    function lacksStock(p, m) {
+      return !!(m && m.needStock && p.cid === 2 && p.stock <= 0);
+    }
     function isZonerFbMove(p, m) {
       if (!m || p.cid !== 0) return false;
       return m.fb === 'z_norm' || m.fb === 'z_ex' || m.fb === 'z_mega' || m.fb === 'z_air' || m.fb === 'z_air_ex';
@@ -2355,7 +2381,7 @@
         if (i.pr.SUP && canSuper(p)) {
           // 特殊キャラがタメブーメラン発射の瞬間にカオスジェネレーターを発動した場合、タメブーメランも確実に発射する
           if (p.cid === 2 && ((p.s === 'ch' && p.cf >= 30) || (p.s === 'atk' && p.m === M.NSM && !p.hit))) {
-            spawnFb(p, 's_boom_chg');
+            if (p.stock > 0) { p.stock--; spawnFb(p, 's_boom_chg'); }
           }
           p.y = 0; p.vy = 0; startSuper(p); return;
         }
@@ -2363,7 +2389,7 @@
         //   通常必殺と同じく「P技のみ」(EX_CANCEL_KEYS)。K技・必殺技からはEXに化けない。
         if (i.pr.X && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {
           const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
-          if (M[xk] && !M[xk].th && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); return }
+          if (M[xk] && !M[xk].th && !lacksStock(p, M[xk]) && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); return }
         }
       }
       if (p.s === 'atk' && p.m.dashDerive && p.fr >= 5 && p.fr <= 23) {
@@ -2372,12 +2398,12 @@
       }
       if (p.s === 'atk' && p.hit && !p.m.th && (p.m.c || p.m.exC) && !p.m.air) {
         if (i.pr.SUP && canSuper(p)) {
-          if (p.cid === 2 && p.m === M.NSM && !p.hit) spawnFb(p, 's_boom_chg');
+          if (p.cid === 2 && p.m === M.NSM && !p.hit && p.stock > 0) { p.stock--; spawnFb(p, 's_boom_chg'); }
           p.y = 0; p.vy = 0; startSuper(p); return;
         }
         if (i.pr.X && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {   // ★【調整】キャンセル：ヒット/ガード後のEXキャンセルもP技のみ
           const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
-          if (M[xk] && !M[xk].th && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); pop(p, 'EXキャンセル！'); return }
+          if (M[xk] && !M[xk].th && !lacksStock(p, M[xk]) && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); pop(p, 'EXキャンセル！'); return }
         }
         if (p.m.c && i.pr.S) {
           const sk = (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N') + 'S';
@@ -2410,6 +2436,7 @@
       if (i.pr.X && (p.g >= 1 || (!NET.active && !LOCAL_VS.active && p === E && TRN.rev === 2))) {
         const m = M['X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N')];
         if (m) {
+          if (lacksStock(p, m)) return;
           if (isZonerFbMove(p, m) && hasActiveZonerFb(p)) return;
           if (p.g >= 1) p.g -= 1;
           go(p, m); return;
@@ -2534,11 +2561,12 @@
         case 'ch': {
           p.cf++; p.fr++;
           const CHARGE_NEED_FRAMES = 30;
-          if (p.cf === CHARGE_NEED_FRAMES) { se('chg'); pop(p, '最大タメ完了！') }
+          const canCharge = !(p.cid === 2 && p.stock <= 0);
+          if (canCharge && p.cf === CHARGE_NEED_FRAMES) { se('chg'); pop(p, '最大タメ完了！') }
           resolveInput(p, i);
           if (p.s !== 'ch') break;
           const held = C0.chKey === 'NP' ? i.h.P : i.h.S;
-          if (!held) go(p, p.cf >= CHARGE_NEED_FRAMES ? M[C0.chTo] : M[C0.chKey]);
+          if (!held) go(p, (canCharge && p.cf >= CHARGE_NEED_FRAMES) ? M[C0.chTo] : M[C0.chKey]);
           break;
         }
         case 'js':
@@ -4332,7 +4360,7 @@
       rows.push(['EXキャンセル', 'P技（5P/6P/2P/4P）がヒット/ガードした時にEXボタン']);
       for (const k of Object.keys(c.M)) if (c.M[k].rapidTo) rows.push([`${k} → ${c.M[k].rapidTo.join('/')}キャンセル`, `${c.M[k].n}がヒット/ガードしたら、すぐに ${c.M[k].rapidTo.join('/')} を入力するとキャンセルして出る`]);
       if (c.id === 1) rows.push(['特殊派生', '4SP(ダッシュスルー)中 P:中段・K:下段']);
-      if (c.id === 2) rows.push(['特殊弾ストック', '5SPで弾をストック(最大4)。6SPで発射（EXは消費なし）']);
+      if (c.id === 2) rows.push(['特殊弾ストック', '5SPで弾をストック(最大4)。6SP/タメ5SP/6EXで消費して発射']);
       $('mlt').textContent = `技表：${c.name}（${c.role}）`;
       $('mlb').innerHTML = `<table><tr><th>コマンド</th><th>技名・効果</th></tr>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join('')}</table><div style="font-size:12px;color:#b8bfd8;line-height:1.6">・相手の背後へ飛んだ弾は「相手側（右）」へレバーを入れるとガード可能。<br>・コンボ補正：100% → 80% → 60% → 40% → 20% → 6段目で強制ダウン（0%）。<br>・キーボード：WASD/矢印移動, J=P, K=K, L=SP, U=投げ, I=EX, O=S, H=超必殺, R=リセット</div>`;
     }
@@ -4647,8 +4675,34 @@
 
     /* ======================= 変更内容（設定⚙ → 📝 変更内容） ======================= */
     const CHANGELOG = [
+      {v:GAME_VER, date: '2026/11/24', items: [
+          '<b>緊急バランス調整のお知らせ</b>',
+          '対戦において、機動力に乏しい特殊キャラがスライディングで地面を滑るだけで<b>立ち攻撃も飛び道具も華麗にすり抜けて突っ込んでくるという極めて不快な戦法</b>が多数見られました',
+          '運営はこれを重く捉え、スライディング中のやられ判定を<b>大幅に拡大（前方 44→75 / 後方 34→0）</b>しました',
+          'さらに高さに至っては<b>38→80へと魔改造し、普通に立っている時と同じ高さ</b>にしました。姿勢は低いのに当たり判定だけは直立不動という謎の空間歪曲が発生していますが、仕様です',
+          '<b>ジャンプ攻撃の仕様変更について</b>',
+          'せっかく意を決して飛び込んだのに、足先を小技でペチッと蹴られて落とされるという悲鳴が運営に多数寄せられました',
+          'そこで<b>ジャンプ攻撃中のみ下半身（脚）を無敵</b>にしました。空中で攻撃を繰り出している間、脚は異次元に格納されます',
+          'なお、<b>ただジャンプしているだけの時は普通に脚が当たります</b>ので、脳死で飛ぶだけの戦法はこれまで通りしっかりお仕置きされます',
+          '対戦において存在感が薄かった弾キャラクターに大幅に上方修正を行いました',
+          'EX弾は弾の打ち合いに強くするために２発弾が発射され、ダウン時間も増加しました',
+          'エア・シューター、は初期バージョンを彷彿とさせる形に仕上げました']
+        },
+        
+  
       {
-        v: GAME_VER, date: '2026/11/23', items: [
+        v: '3.5.0', date: '2026/11/24', items: [
+          '<b>バランス調整アップデート</b>',
+          '<b>特殊キャラ（下方修正）</b>：<b>タメブーメラン</b>と<b>EXブーメランスロー</b>が<b>弾ストックを1消費</b>するようになりました（ストック0のときは発動せず、タメ5SPは通常のストック溜めになります）',
+          '特殊キャラの各種ブーメランガード時の<b>ゲージ削り量を大幅に減少</b>しました（通常 0.4→0.1 / EX 0.8→0.2 / タメ 1.5→0.35）',
+          '特殊キャラのスライディング（シャドウスライド／EXシャドウスライド）の<b>当たり判定（やられ判定）を増加</b>し、相手の攻撃に当たりやすくなりました',
+          '<b>肉弾キャラ（調整）</b>：サマーソルト／EXサマーソルトの<b>あと隙（全体硬直）を増加</b>しました（全体 +12F / ガード時 -20F→-32F）',
+          '<b>弾キャラ（上方修正）</b>：タメ弾（メガ・キャノン）の<b>弾速を大幅にアップ</b>しました（弾速 2 → 4）',
+          '弾キャラの<b>歩き速度を速く</b>しました（2.05 → 3.2）'
+        ]
+      },
+      {
+        v: '3.4.0', date: '2026/11/23', items: [
           '<b>緊急メンテナンスのお知らせ</b>',
           '空中で切り返しを食らった被害者が、<b>そのまま宙に浮いて硬直するという謎のホバリング現象</b>が多数報告されました',
           '運営は「重力さん、お仕事です」と判断し、空中で食らった場合も<b>きちんと地面に戻す</b>ようにしました',
