@@ -946,10 +946,10 @@
       upBack: 10, upTop: 115, upBelow: 6,   // 打ち上げ技：背中側・上端・地面より下へ
       revTop: 94, revBottom: 6,             // 無敵切り返し：高さ（上端/下端）
       aaPartInvParts: ['head', 'armF', 'armB'],   // 部位別の対空無敵(aaPartInv)で、空中の相手の攻撃が当たらなくなる部位
-      antiAirBack: -10,                      // 対空P(antiAir:1)：背中側へ何px判定を出すか
-      antiAirTop: 108, antiAirBottom: 70,   // 対空P：判定の上端/下端（地面からの高さ px。頭上〜胸の高さ）
+      antiAirBack: 0,                      // 対空P(antiAir:1)：背中側へ何px判定を出すか
+      antiAirTop: 118, antiAirBottom: 70,   // 対空P：判定の上端/下端（地面からの高さ px。頭上〜胸の高さ）
       airKickMargin: 12,                    // ジャンプK：足の位置から上下に ±
-      airPunchHalf: 12                      // ジャンプP：手の高さから上下に ±
+      airPunchHalf: 20                      // ジャンプP：手の高さから上下に ±
     };
 
     let IS_ROLLBACK = 0;
@@ -1109,7 +1109,7 @@
           NP:  { n: '大振りなぎ払い',             s: 16, a: 4,  t: 46, d: 1000, r: 1.8,  h: 'h', g: -9,  v: 2,  c: 1 },
           FP:  { n: 'ロングハンド(中段)',         s: 14, a: 3,  t: 38, d: 650,  r: 1.7,  h: 'm', g: -5,  v: 2,  c: 1 },
           DP:  { n: 'つっつきパンチ',             s: 5,  a: 2,  t: 15, d: 300,  r: 1.0,  h: 'h', g: -1,  v: 2,  c: 1, rapid: 1 },
-          BP:  { n: 'ハーフハート',             s: 16, a: 6,  t: 39, d: 700,  r: 0.01,  h: 'h', g: -4,  v: 3,  pushFar: 1, c: 1, antiAir: 1, aaPartInv: 19 },   // aaPartInv:19 = 出始め〜持続終了(19F)の間、頭と腕は空中の相手の攻撃が当たらない
+          BP:  { n: 'ハーフハート',             s: 12, a: 6,  t: 39, d: 700,  r: 0.5,  h: 'h', g: -4,  v: 3,  pushFar: 1, c: 1, antiAir: 1, aaPartInv: 19 },   // aaPartInv:19 = 出始め〜持続終了(19F)の間、頭と腕は空中の相手の攻撃が当たらない
    // antiAir:1 = 腕を振り上げて頭上にも当たる(最低限の対空)
           NK:  { n: 'フロントキック',             s: 9,  a: 3,  t: 33, d: 600,  r: 2.0,  h: 'h', g: 1,   v: 3,   },
           FK:  { n: '踏みつけ(中段)',             s: 13, a: 3,  t: 35, d: 700,  r: 1.5,  h: 'm', g: 1,   v: 3,  mv: 1.4,  },
