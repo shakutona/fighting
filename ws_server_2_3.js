@@ -1,12 +1,11 @@
-// ws_server_2_3.js — 2D対戦格闘ゲーム用 HTTP + WebSocket 自動マッチングサーバー
+// ws_server_2_3.js — 2D対戦格闘ゲーム用 HTTP + WebSocket ロビー＆自動マッチングサーバー
 // 外部ライブラリ不要（Node.js標準機能のみで動作）
 //
-// 【改善点（v2.3 → 低遅延・安定化版）】
-//  - 中継するだけの軽量サーバー（ゲーム状態は持たない）。ズレ検出/修復は index.html 側で行う。
+// 【機能】
+//  - ロビー形式：待機中プレイヤー一覧（ユーザー名・使用キャラ）をリアルタイム配信し、相手を選んで対戦可能
+//  - 互換用の自動マッチング(quick)／ルーム指定(join)も維持
 //  - TCP_NODELAY + keepAlive で中継遅延を最小化
-//  - 20秒ごとに WebSocket Ping を送り、Render 等のプロキシによる「無通信切断」を防止／死んだ接続を掃除
-//  - 不正に大きいフレームや壊れたフレームで落ちないよう防御
-//  - 相手が詰まっている(送信バッファが溜まっている)場合に状況を把握できるよう、/health で統計を返す
+//  - 20秒ごとに WebSocket Ping を送り、Render 等のプロキシによる無通信切断を防止
 
 const http = require('http');
 const fs = require('fs');
@@ -16,14 +15,15 @@ const os = require('os');
 
 const PORT = Number(process.env.PORT) || 8080;
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-const MAX_FRAME_BYTES = 256 * 1024;   // 1メッセージの上限（通常は数百バイト、ズレ修復でも数KB）
-const PING_INTERVAL_MS = 20000;       // 無通信切断対策のPing間隔
-const DEAD_AFTER_MS = 70000;          // これだけ何も受信できなければ切断扱い
+const MAX_FRAME_BYTES = 256 * 1024;
+const PING_INTERVAL_MS = 20000;
+const DEAD_AFTER_MS = 70000;
 
-let quickWaiter = null;               // 番号なし即マッチ待機中のクライアント
-const rooms = new Map();              // 互換用ルーム管理
+let quickWaiter = null;
+const rooms = new Map();
 const clients = new Set();
 let totalMatches = 0;
+let nextClientId = 1;
 
 function writeFrame(client, opcode, payload) {
   if (!client || client.closed || client.socket.destroyed) return;
@@ -45,7 +45,6 @@ function writeFrame(client, opcode, payload) {
     header.writeBigUInt64BE(BigInt(len), 2);
   }
   try {
-    // 1回の write にまとめる（TCPパケット数を減らして遅延を抑える）
     client.socket.write(len ? Buffer.concat([header, payload]) : header);
   } catch (e) {
     cleanupClient(client);
@@ -68,9 +67,35 @@ function sendPing(client) {
   writeFrame(client, 0x9, Buffer.alloc(0));
 }
 
+function getLobbyUsers() {
+  const list = [];
+  for (const c of clients) {
+    if (c.closed || c.socket.destroyed) continue;
+    if (c.inLobby || c.partner) {
+      list.push({
+        id: c.id,
+        name: c.name || '名無し',
+        cid: c.cid | 0,
+        status: c.partner ? 'playing' : 'waiting'
+      });
+    }
+  }
+  return list;
+}
+
+function broadcastLobby() {
+  const users = getLobbyUsers();
+  for (const c of clients) {
+    if (!c.closed && c.inLobby && !c.partner) {
+      sendJson(c, { t: 'lobby_list', selfId: c.id, users });
+    }
+  }
+}
+
 function cleanupClient(client) {
   if (client.closed) return;
   client.closed = true;
+  client.inLobby = false;
   clients.delete(client);
 
   if (quickWaiter === client) {
@@ -92,22 +117,37 @@ function cleanupClient(client) {
   }
 
   try { client.socket.destroy(); } catch (e) { }
+  broadcastLobby();
 }
 
 function pairClients(p1, p2) {
   p1.partner = p2;
   p2.partner = p1;
+  p1.inLobby = false;
+  p2.inLobby = false;
   totalMatches++;
   sendJson(p1, { t: 'joined', role: 1 });
   sendJson(p2, { t: 'joined', role: 2 });
   sendJson(p1, { t: 'peer_joined' });
+  broadcastLobby();
+}
+
+function findClientById(id) {
+  for (const c of clients) {
+    if (c.id === id && !c.closed && !c.socket.destroyed) return c;
+  }
+  return null;
 }
 
 function handleMessage(client, rawText) {
-  // 対戦中の入力・制御データはパース不要。最優先で相手へ即転送（ここが遅延に直結する）
+  // 対戦中の入力・制御データはパース不要。最優先で相手へ即転送
   if (client.partner && !client.partner.closed) {
-    // マッチング用メッセージ(quick/join)だけは自分で処理する。先頭文字列で軽く判定してJSON.parseを避ける。
-    if (rawText.charCodeAt(0) === 123 /* { */ && !rawText.startsWith('{"t":"quick"') && !rawText.startsWith('{"t":"join"')) {
+    if (
+      rawText.charCodeAt(0) === 123 &&
+      !rawText.startsWith('{"t":"quick"') &&
+      !rawText.startsWith('{"t":"join"') &&
+      !rawText.startsWith('{"t":"lobby_')
+    ) {
       sendText(client.partner, rawText);
       return;
     }
@@ -121,8 +161,57 @@ function handleMessage(client, rawText) {
   }
   if (!msg || typeof msg !== 'object') return;
 
-  // 番号なし自動マッチング
+  // ロビー入室
+  if (msg.t === 'lobby_join') {
+    if (client.partner) {
+      const p = client.partner;
+      client.partner = null;
+      p.partner = null;
+      sendJson(p, { t: 'peer_left' });
+    }
+    client.name = String(msg.name || '名無し').trim().slice(0, 12) || '名無し';
+    client.cid = Number(msg.cid) || 0;
+    client.inLobby = true;
+    broadcastLobby();
+    return;
+  }
+
+  // ロビー内の名前・キャラ更新
+  if (msg.t === 'lobby_update') {
+    if (msg.name !== undefined) {
+      client.name = String(msg.name || '名無し').trim().slice(0, 12) || '名無し';
+    }
+    if (msg.cid !== undefined) {
+      client.cid = Number(msg.cid) || 0;
+    }
+    broadcastLobby();
+    return;
+  }
+
+  // ロビーで相手を選んで対戦申し込み
+  if (msg.t === 'lobby_challenge') {
+    if (client.partner) return;
+    const targetId = Number(msg.targetId);
+    const target = findClientById(targetId);
+    if (!target || target === client || !target.inLobby || target.partner) {
+      sendJson(client, { t: 'lobby_err', msg: '選択した相手はすでに対戦中か退出しました' });
+      broadcastLobby();
+      return;
+    }
+    if (msg.name !== undefined) {
+      client.name = String(msg.name || '名無し').trim().slice(0, 12) || '名無し';
+    }
+    if (msg.cid !== undefined) {
+      client.cid = Number(msg.cid) || 0;
+    }
+    pairClients(target, client);
+    return;
+  }
+
+  // 番号なし自動マッチング（互換用）
   if (msg.t === 'quick') {
+    client.name = String(msg.name || '名無し').trim().slice(0, 12) || '名無し';
+    client.cid = Number(msg.cid) || 0;
     if (quickWaiter === client) return;
     if (quickWaiter && !quickWaiter.closed && !quickWaiter.socket.destroyed) {
       const host = quickWaiter;
@@ -163,13 +252,19 @@ function handleMessage(client, rawText) {
   }
 }
 
-// HTTPサーバー：同フォルダの index.html を配信
 const server = http.createServer((req, res) => {
   const urlPath = (req.url || '/').split('?')[0];
   if (urlPath === '/health') {
-    // Render のヘルスチェック／スリープ防止用の外部監視(UptimeRobot等)の宛先にも使えます
+    const lobbyUsers = getLobbyUsers();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ ok: true, clients: clients.size, waiting: quickWaiter ? 1 : 0, matches: totalMatches, uptimeSec: Math.round(process.uptime()) }));
+    res.end(JSON.stringify({
+      ok: true,
+      clients: clients.size,
+      waiting: lobbyUsers.filter(u => u.status === 'waiting').length + (quickWaiter ? 1 : 0),
+      lobby: lobbyUsers,
+      matches: totalMatches,
+      uptimeSec: Math.round(process.uptime())
+    }));
     return;
   }
   if (urlPath === '/' || urlPath === '/index.html') {
@@ -192,7 +287,6 @@ const server = http.createServer((req, res) => {
   res.end();
 });
 
-// WebSocketアップグレード処理
 server.on('upgrade', (req, socket) => {
   const key = req.headers['sec-websocket-key'];
   if (!key) {
@@ -200,7 +294,7 @@ server.on('upgrade', (req, socket) => {
     return;
   }
 
-  socket.setNoDelay(true);              // 低遅延化（Nagleアルゴリズム無効）
+  socket.setNoDelay(true);
   socket.setKeepAlive(true, 20000);
   const acceptKey = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
 
@@ -211,7 +305,18 @@ server.on('upgrade', (req, socket) => {
     `Sec-WebSocket-Accept: ${acceptKey}\r\n\r\n`
   );
 
-  const client = { socket, buf: Buffer.alloc(0), closed: false, partner: null, room: null, lastSeen: Date.now() };
+  const client = {
+    id: nextClientId++,
+    name: '名無し',
+    cid: 0,
+    inLobby: false,
+    socket,
+    buf: Buffer.alloc(0),
+    closed: false,
+    partner: null,
+    room: null,
+    lastSeen: Date.now()
+  };
   clients.add(client);
 
   socket.on('data', chunk => {
@@ -236,7 +341,7 @@ server.on('upgrade', (req, socket) => {
         offset = 10;
       }
 
-      if (payloadLen > MAX_FRAME_BYTES) {   // 異常に大きいフレームは切断
+      if (payloadLen > MAX_FRAME_BYTES) {
         cleanupClient(client);
         return;
       }
@@ -256,15 +361,14 @@ server.on('upgrade', (req, socket) => {
 
       client.buf = client.buf.subarray(offset + maskLen + payloadLen);
 
-      if (opcode === 0x8) {            // close
+      if (opcode === 0x8) {
         cleanupClient(client);
         return;
-      } else if (opcode === 0x9) {     // ping
+      } else if (opcode === 0x9) {
         sendPong(client, payload);
-      } else if (opcode === 0x1) {     // text
+      } else if (opcode === 0x1) {
         handleMessage(client, payload.toString('utf8'));
       }
-      // 0xA(pong)は lastSeen の更新だけで十分
     }
   });
 
@@ -272,7 +376,6 @@ server.on('upgrade', (req, socket) => {
   socket.on('error', () => cleanupClient(client));
 });
 
-// 生存確認：定期Ping（プロキシの無通信切断防止）＆ 応答の無い接続の掃除
 setInterval(() => {
   const now = Date.now();
   for (const c of clients) {
@@ -287,7 +390,7 @@ server.listen(PORT, '0.0.0.0', () => {
   const rawHost = os.hostname();
   const localHost = rawHost.endsWith('.local') ? rawHost : `${rawHost}.local`;
   console.log('======================================================');
-  console.log(` 2D対戦格闘ゲーム サーバー起動完了 (ポート: ${PORT})`);
+  console.log(` 2D対戦格闘ゲーム ロビーサーバー起動完了 (ポート: ${PORT})`);
   console.log('------------------------------------------------------');
   console.log(` 【PC側(1P) URL】   http://localhost:${PORT}/?auto=local`);
   console.log(` 【スマホ側(2P) URL】 http://${localHost}:${PORT}/?auto=local`);

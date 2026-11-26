@@ -349,6 +349,35 @@
       color: #fff
     }
 
+    .lobby-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: #12141e;
+      border: 1px solid #3c4257;
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+    .lobby-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .lobby-name {
+      font-size: 13.5px;
+      font-weight: bold;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .lobby-char {
+      font-size: 11px;
+      color: #6fe3ff;
+    }
     .oinp {
       background: #0d0e14;
       color: #fff;
@@ -665,11 +694,18 @@
     <h2><span>⚡ ワンタップ対戦（番号・コピペ不要）</span><button id="onlc" style="padding:4px 12px;font-size:13px">閉じる</button></h2>
 
     <div class="ocard">
-      <h3>1. 自分のキャラ・入力遅延（ロールバック方式）</h3>
+      <h3>1. プレイヤー名・キャラ・入力遅延</h3>
+      <div style="margin-bottom:8px">
+        <div class="olbl" style="margin-top:0;margin-bottom:4px">ユーザー名（ロビーや対戦画面に表示されます・12文字まで）</div>
+        <input class="oinp" id="oNameInp" type="text" maxlength="12" placeholder="例：たなか">
+      </div>
       <div class="orow" id="oCharRow">
         <button class="obtn sel" data-cid="0">弾キャラ</button>
         <button class="obtn" data-cid="1">肉弾キャラ</button>
         <button class="obtn" data-cid="2">特殊キャラ</button>
+      </div>
+      <div id="oCharHint" style="font-size:11px;color:#b8bfd8;margin-top:5px">
+        ※ロビー待機中や対戦中でもキャラ変更できます（対戦中は「もう1戦」から反映）
       </div>
       <div style="margin-top:8px" class="orow" id="oDlyRow">
         <span style="font-size:12px;color:#b8bfd8">入力遅延：</span>
@@ -680,13 +716,21 @@
     </div>
 
     <div class="ocard" id="oQuickCards">
-      <h3>2. 対戦方法を選んで即スタート</h3>
+      <h3>2. オンラインロビー・対戦方法</h3>
 
       <button class="obtn pri big" id="btnNetQuick" style="margin-bottom:8px">
-        🌐 ネット対戦（離れている友達と即マッチ）
+        🌐 オンラインロビーに入る（相手を選んで対戦）
       </button>
-      <div style="font-size:11px;color:#b8bfd8;margin-bottom:12px;line-height:1.45">
-        お互いがこのボタンを押すだけで自動マッチングします（Type-Cケーブル＋テザリング時にも最短ルートで自動直結）。
+      <div style="font-size:11px;color:#b8bfd8;margin-bottom:10px;line-height:1.45">
+        ロビーに入ると待機中のプレイヤー一覧が表示されます。好きな相手を選んで対戦を挑めます。
+      </div>
+
+      <div id="oLobbyBox" style="display:none;margin-bottom:12px;padding:8px;background:#141722;border:1px solid #4aa3ff;border-radius:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:12.5px;font-weight:bold;color:#6fe3ff">🏟 ロビー待機中プレイヤー</span>
+          <button class="obtn dan" id="btnLobbyLeave" style="padding:4px 9px;font-size:11.5px">ロビーを出る</button>
+        </div>
+        <div id="oLobbyList" style="font-size:12px;color:#b8bfd8">読み込み中...</div>
       </div>
 
       <button class="obtn grn big" id="btnCableQuick" style="margin-bottom:8px">
@@ -732,7 +776,7 @@
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
-    const GAME_VER = '3.6.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
+    const GAME_VER = '3.7.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
     const CHORD_WIN = 4;              // 同時押し(P+K投げ / SP+P,K でEX 等)とみなす最大フレーム差
     // ★【調整】距離(px)：
     const SEP = {
@@ -1167,10 +1211,10 @@
       stock: cid === 2 ? 1 : 0, bkTap: 0, prevBk: 0, thWin: 0, thBy: null, thM: null, thDir: 1,
       thType: 'slam', thDur: 28, thTarget: null, thBaseX: 0,
       chaosQ: 0, chaosT: 0, chaosIdx: 0, pop: '', popT: 0, w: 0, cf: 0,
-      cd: 0, dn: 0, cs: 0, pun: false, lsid: 0, mid: 0, twT: 0, twK: '', wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, pend: []
+      cd: 0, dn: 0, cs: 0, pun: false, lsid: 0, mid: 0, twT: 0, twK: '', wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, pend: [], exGlow: 0
     });
     let P = mk(210, 0), E = mk(430, 1);
-    let fbs = [], sparks = [], ph = 0, pt = 0, msg = '', rw = [0, 0], ai = { t: 0, a: 'x', f: 0 }, FR = 0, pnT = 0, cutT = 0, cutTxt = '', cutCol = '#fff', goT = 0, endType = '', winSide = -1;
+    let fbs = [], sparks = [], ph = 0, pt = 0, msg = '', rw = [0, 0], ai = { t: 0, a: 'x', f: 0 }, FR = 0, pnT = 0, cutT = 0, cutTxt = '', cutCol = '#fff', cutOwner = 0, goT = 0, endType = '', winSide = -1;
     let T = TUNE.roundFrames, HS = 0, SHK = 0, SID = 0;
 
     function canSuper(p) { return p.g >= 4 && p.supCd <= 0 }
@@ -1223,7 +1267,7 @@
        ロールバックネットコード（GGPOスタイル）管理＆スナップショット
        ========================================================================= */
     const NET = {
-      peer: null, conn: null, active: 0, mode: '', side: 0, myCid: 0, delay: 2,
+      peer: null, conn: null, active: 0, mode: '', side: 0, myCid: 0, delay: 2, myName: '名無し', p1Name: '1P', p2Name: '2P', inLobby: 0, lobbySelfId: 0, peerNextCid: -1,
       simFr: 0, syncFr: 0, locSentUpTo: -1,
       in1: new Map(), in2: new Map(),
       predMap: new Map(), snaps: new Map(),
@@ -1259,7 +1303,7 @@
         chaosQ: p.chaosQ, chaosT: p.chaosT, chaosIdx: p.chaosIdx,
         pop: p.pop, popT: p.popT, w: p.w, cf: p.cf,
         cd: p.cd, dn: p.dn, cs: p.cs, pun: p.pun, lsid: p.lsid, mid: p.mid,
-        twT: p.twT, twK: p.twK, spinHits: p.spinHits, spinKd: p.spinKd, spinStun: p.spinStun,
+        twT: p.twT, twK: p.twK, spinHits: p.spinHits, spinKd: p.spinKd, spinStun: p.spinStun, exGlow: p.exGlow,
         pend: p.pend.map(e => ({ b: e.b, t: e.t })),
         wakeupBuf: p.wakeupBuf ? { ...p.wakeupBuf, pr: { ...p.wakeupBuf.pr } } : null
       };
@@ -1284,7 +1328,7 @@
       p.chaosQ = st.chaosQ; p.chaosT = st.chaosT; p.chaosIdx = st.chaosIdx;
       p.pop = st.pop; p.popT = st.popT; p.w = st.w; p.cf = st.cf;
       p.cd = st.cd; p.dn = st.dn; p.cs = st.cs; p.pun = st.pun; p.lsid = st.lsid; p.mid = st.mid;
-      p.twT = st.twT; p.twK = st.twK; p.spinHits = st.spinHits || 0; p.spinKd = st.spinKd || 0; p.spinStun = st.spinStun || 0;
+      p.twT = st.twT; p.twK = st.twK; p.spinHits = st.spinHits || 0; p.spinKd = st.spinKd || 0; p.spinStun = st.spinStun || 0; p.exGlow = st.exGlow || 0;
       p.pend = (st.pend || []).map(e => ({ b: e.b, t: e.t }));
       p.wakeupBuf = st.wakeupBuf ? { ...st.wakeupBuf, pr: { ...st.wakeupBuf.pr } } : null;
     }
@@ -1323,7 +1367,7 @@
         prev1: NET.prev1,
         prev2: NET.prev2,
         ph, pt, msg, rw: [rw[0], rw[1]],
-        FR, pnT, cutT, cutTxt, cutCol, goT, endType, winSide, T, HS, SHK, SID,
+        FR, pnT, cutT, cutTxt, cutCol, cutOwner, goT, endType, winSide, T, HS, SHK, SID,
         FM: NET.active ? null : {
           max: FM.max,
           p: FM.p.map(x => ({ t: x.t, inv: x.inv, lbl: x.lbl })),
@@ -1353,7 +1397,7 @@
       NET.prev1 = snap.prev1;
       NET.prev2 = snap.prev2;
       ph = snap.ph; pt = snap.pt; msg = snap.msg; rw = [snap.rw[0], snap.rw[1]];
-      FR = snap.FR; pnT = snap.pnT; cutT = snap.cutT; cutTxt = snap.cutTxt; cutCol = snap.cutCol;
+      FR = snap.FR; pnT = snap.pnT; cutT = snap.cutT; cutTxt = snap.cutTxt; cutCol = snap.cutCol; cutOwner = snap.cutOwner || 0;
       goT = snap.goT || 0; endType = snap.endType || ''; winSide = snap.winSide !== undefined ? snap.winSide : -1;
       T = snap.T; HS = snap.HS; SHK = snap.SHK; SID = snap.SID;
       if (snap.FM) {
@@ -1549,13 +1593,16 @@
       NET.prev2 = 0;
       NET.rematchSelf = 0;
       NET.rematchPeer = 0;
+      NET.peerNextCid = -1;
+      NET.inLobby = 0;
+      $('oLobbyBox').style.display = 'none';
       NET.waitFrames = 0;
       NET.sentUpTo = delay - 1;
       NET.epoch = 0; NET.myChk.clear(); NET.peerChk.clear(); NET.chkSnaps.clear();
       NET.desyncCount = 0; NET.resyncCount = 0; NET.lead = 0; NET.slow = 0;
       // ★重要：FR(描画/ポーズ計算に使うフレームカウンタ)やSID等は両端末で必ず同じ値から始める。
       //   以前は端末ごとにトレーニング中の値を引きずっており、ポーズ→当たり判定がズレる原因になっていた。
-      FR = 0; SID = 0; pnT = 0; cutT = 0; cutTxt = ''; cutCol = '#fff'; goT = 0; endType = ''; winSide = -1; HS = 0; SHK = 0; msg = ''; ph = 0; pt = 0;
+      FR = 0; SID = 0; pnT = 0; cutT = 0; cutTxt = ''; cutCol = '#fff'; cutOwner = 0; goT = 0; endType = ''; winSide = -1; HS = 0; SHK = 0; msg = ''; ph = 0; pt = 0;
       LOC.tapBits = 0;
       TRN.recState = 0;
       TRN.ctrl2P = 0;
@@ -1589,6 +1636,9 @@
       NET.side = 0;
       NET.rematchSelf = 0;
       NET.rematchPeer = 0;
+      NET.peerNextCid = -1;
+      NET.inLobby = 0;
+      $('oLobbyBox').style.display = 'none';
       NET.snaps.clear();
       NET.predMap.clear();
       document.getElementById('oQuickCards').style.display = 'block';
@@ -1744,7 +1794,7 @@
         const cid = q.cid;
         Object.assign(q, { hp: 1e4, s: 'i', t: 0, dnMax: 50, supCd: 0, y: 0, vy: 0, vx: 0, cmb: 0, fb: 0, cr: 0, airUsed: 0, n: '', stock: cid === 2 ? 1 : 0, thWin: 0, thTarget: null, chaosQ: 0, chaosT: 0, chaosIdx: 0, popT: 0, cd: 0, dn: 0, cs: 0, twT: 0, wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, pend: [] });
       }
-      P.x = 160; E.x = 480; P.f = 1; E.f = -1; fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; endType = ''; winSide = -1; goT = (NET.active || LOCAL_VS.active) ? 48 : 0; resetFM(); T = TUNE.roundFrames; HS = 0;
+      P.x = 160; E.x = 480; P.f = 1; E.f = -1; fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; cutOwner = 0; endType = ''; winSide = -1; goT = (NET.active || LOCAL_VS.active) ? 156 : 0; resetFM(); T = TUNE.roundFrames; HS = 0;
       I.pr = {}; CI.pr = {}; I.buf = []; CI.buf = [];   // ラウンド間に押した入力を持ち越さない
     }
 
@@ -1766,7 +1816,7 @@
       else { P.x = 295; E.x = 345 }
       P.f = E.x >= P.x ? 1 : -1;
       E.f = P.x >= E.x ? 1 : -1;
-      fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; endType = ''; winSide = -1; goT = 0; HS = 0; pnT = 0;
+      fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; cutOwner = 0; endType = ''; winSide = -1; goT = 0; HS = 0; pnT = 0;
       TRN.guardHitCnt = 0;
       TRN.prevES = 'i';
       resetFM();
@@ -1796,6 +1846,7 @@
     function go(p, m) {
       p.s = 'atk'; p.m = m; p.fr = 0; p.hit = 0; p.n = m.n; p.mid = ++SID;
       p.pend = [];   // 技を出したら、溜めていた先行入力は消費済み
+      if (m.k && m.k.startsWith('X')) p.exGlow = 22;
       if (m.hop) { p.y = TUNE.hopStartY; p.vy = TUNE.hopVy }
     }
 
@@ -2367,7 +2418,7 @@
         p.wakeupBuf = null;
         p.y = 0; p.vy = 0; p.vx = 0; p.airUsed = 0; go(p, M.REV); pop(p, '切り返し！'); se('tech');
         // ★【調整】切り返しの暗転：画面を暗くしてゲームを一瞬止める（文字は出さない。cutTxt を空にすると暗転のみになる）
-        if (TUNE.revCutFrames > 0) { cutT = TUNE.revCutFrames; cutTxt = ''; cutCol = '#fff' }
+        if (TUNE.revCutFrames > 0) { cutT = TUNE.revCutFrames; cutTxt = ''; cutCol = '#fff'; cutOwner = 0 }
         return;
       }
       if (p.s === 'air' && !p.airUsed) {
@@ -2472,7 +2523,7 @@
       const C0 = CHARS[p.cid];
       p.g = 0;
       p.supCd = SUP_CD_MAX;
-      cutT = 30; cutTxt = C0.name + '：' + C0.superName + '！'; cutCol = C0.col;
+      cutT = 30; cutTxt = C0.name + '：' + C0.superName + '！'; cutCol = C0.col; cutOwner = (p === P) ? 1 : 2;
       se('sup');
       // カオス・ジェネレーターは「発動した瞬間」に効果を確定させ、ブーメランも確実に展開できるようにする
       if (C0.M.SUP.chaos) {
@@ -2522,6 +2573,7 @@
       const C0 = CHARS[p.cid], M = C0.M;
       if (p.wakeupBuf && --p.wakeupBuf.ttl <= 0) p.wakeupBuf = null;
       if (p.popT > 0) p.popT--;
+      if (p.exGlow > 0) p.exGlow--;
       if (p.supCd > 0) p.supCd--;
       if (p.twT > 0 && --p.twT === 0 && p.s === 'atk') spawnFb(p, p.twK);
 
@@ -3113,6 +3165,7 @@
       if (NET.active || LOCAL_VS.active) {
         if (ph === 2) { I.pr = {}; CI.pr = {}; return }
         if (ph === 1) { I.pr = {}; CI.pr = {}; if (--pt <= 0) round(); return }
+        if (goT > 36) { goT--; I.pr = {}; CI.pr = {}; return }
       }
 
       processInputBuffer(I);
@@ -3500,7 +3553,19 @@
         X.rotate(po.tilt);
         X.translate(0, piv);
       }
-      X.strokeStyle = s === 'hs' ? '#fff' : s === 'gb' ? '#ff7a45' : p.c;
+      if (p.exGlow > 0) {
+        const gAlpha = Math.min(1, p.exGlow / 22);
+        X.save();
+        X.strokeStyle = `rgba(255, 230, 80, ${(0.55 * gAlpha).toFixed(3)})`;
+        X.lineWidth = 3;
+        X.beginPath();
+        X.ellipse(0, -44, 24 + (22 - p.exGlow) * 1.1, 46 + (22 - p.exGlow) * 0.7, 0, 0, 7);
+        X.stroke();
+        X.restore();
+        X.shadowColor = '#ffe250';
+        X.shadowBlur = 12 + gAlpha * 14;
+      }
+      X.strokeStyle = s === 'hs' ? '#fff' : s === 'gb' ? '#ff7a45' : (p.exGlow > 14 ? '#fff3a1' : p.c);
       X.fillStyle = X.strokeStyle; X.lineWidth = 7;
 
       const sx = po.ln, sy = po.sy, hy = po.hy;
@@ -3798,7 +3863,23 @@
 
     function draw() {
       X.fillStyle = '#0d0e14'; X.fillRect(0, 0, W, 360);
-      X.fillStyle = '#232738'; X.fillRect(0, G, W, 360 - G);
+
+      const isSuperZoom = (cutT > 0 && cutTxt && cutOwner > 0);
+      X.save();
+      if (isSuperZoom) {
+        const cf = cutOwner === 1 ? P : E;
+        const prog = 1 - cutT / 30;
+        const zoomIn = Math.min(1, prog / 0.25);
+        const zoomOut = cutT < 5 ? cutT / 5 : 1;
+        const z = 1 + 0.65 * zoomIn * zoomOut;
+        const fx = Math.max(120, Math.min(W - 120, cf.x));
+        const fy = G + cf.y - 52;
+        X.translate(W / 2, 180);
+        X.scale(z, z);
+        X.translate(-fx, -fy);
+      }
+
+      X.fillStyle = '#232738'; X.fillRect(-200, G, W + 400, 360 - G + 200);
 
       X.strokeStyle = 'rgba(255,255,255,.045)'; X.lineWidth = 1;
       for (let gy = G - 20; gy >= 120; gy -= 20) {
@@ -3812,54 +3893,6 @@
       }
 
       const isMatch = NET.active || LOCAL_VS.active;
-
-      for (const [q, l] of [[P, 1], [E, 0]]) {
-        const x = l ? 12 : W / 2 + 28, w = W / 2 - 40, f = Math.max(0, q.hp / 1e4) * w;
-        X.fillStyle = '#2a2d3a'; X.fillRect(x, 12, w, 14);
-        X.fillStyle = q.hp < 3000 ? '#ff5d5d' : '#ffd34d';
-        X.fillRect(l ? x : x + w - f, 12, f, 14);
-
-        X.fillStyle = '#2a2d3a'; X.fillRect(x, 30, w, 7);
-        X.fillStyle = canSuper(q) ? '#ff77e9' : q.g >= 4 ? '#a78bfa' : '#4de0a0';
-        const gw = q.g / 4 * w;
-        X.fillRect(l ? x : x + w - gw, 30, gw, 7);
-        X.fillStyle = '#0d0e14';
-        for (let k = 1; k < 4; k++)X.fillRect(x + w * k / 4 - 1, 30, 2, 7);
-
-        if (isMatch) {
-          X.fillStyle = '#fff';
-          for (let k = 0; k < 2; k++) {
-            X.globalAlpha = k < rw[l ? 0 : 1] ? 1 : .25;
-            X.beginPath(); X.arc(l ? x + 8 + k * 14 : x + w - 8 - k * 14, 47, 5, 0, 7); X.fill();
-          }
-          X.globalAlpha = 1;
-        }
-        X.font = 'bold 11px system-ui'; X.textAlign = l ? 'left' : 'right';
-        let sub = CHARS[q.cid].name;
-        if (NET.active && ((l && NET.side === 1) || (!l && NET.side === 2))) sub += '(あなた)';
-        if (LOCAL_VS.active) sub += l ? '(1P)' : '(2P)';
-        if (!isMatch && !l) {
-          const dumLbl = ['立ち', 'しゃがみ', 'ジャンプ', 'CPU弱', 'CPU強', 'REC再生'][TRN.dummy];
-          sub += ' [' + dumLbl + ']';
-        }
-        if (q.cid === 2) sub += ' [弾:' + q.stock + '/4]';
-        if (canSuper(q)) sub += ' ★超必殺OK';
-        else if (q.supCd > 0) sub += ' [超必殺CD:' + Math.ceil(q.supCd * STEP_MS / 1000) + 's]';
-        X.fillStyle = canSuper(q) ? '#ff9ef2' : '#b8bfd8';
-        const nameOffset = isMatch ? 38 : 4;
-        X.fillText(sub, l ? x + nameOffset : x + w - nameOffset, 51);
-      }
-
-      if (!isMatch) {
-        X.fillStyle = '#38d9a9'; X.font = 'bold 16px system-ui'; X.textAlign = 'center';
-        X.fillText('TRAINING', W / 2, 27);
-      }
-
-      if (pnT > 0) {
-        X.save(); X.globalAlpha = Math.min(.45, pnT / 35);
-        X.fillStyle = '#ff4d6d'; X.font = 'italic 900 84px system-ui'; X.textAlign = 'center';
-        X.fillText('パニッシュ', W / 2, 185); X.restore();
-      }
 
       if (E.s === 'thAtk') { body(P); body(E) }
       else { body(E); body(P) }
@@ -3910,6 +3943,61 @@
         X.beginPath(); X.arc(s.x, s.y, (13 - s.t) * 2.6, 0, 7); X.stroke();
         X.restore();
       }
+      X.restore(); // カメラズーム解除（ここからHUD描画）
+
+      for (const [q, l] of [[P, 1], [E, 0]]) {
+        const x = l ? 12 : W / 2 + 28, w = W / 2 - 40, f = Math.max(0, q.hp / 1e4) * w;
+        X.fillStyle = '#2a2d3a'; X.fillRect(x, 12, w, 14);
+        X.fillStyle = q.hp < 3000 ? '#ff5d5d' : '#ffd34d';
+        X.fillRect(l ? x : x + w - f, 12, f, 14);
+
+        X.fillStyle = '#2a2d3a'; X.fillRect(x, 30, w, 7);
+        X.fillStyle = canSuper(q) ? '#ff77e9' : q.g >= 4 ? '#a78bfa' : '#4de0a0';
+        const gw = q.g / 4 * w;
+        X.fillRect(l ? x : x + w - gw, 30, gw, 7);
+        X.fillStyle = '#0d0e14';
+        for (let k = 1; k < 4; k++)X.fillRect(x + w * k / 4 - 1, 30, 2, 7);
+
+        if (isMatch) {
+          X.fillStyle = '#fff';
+          for (let k = 0; k < 2; k++) {
+            X.globalAlpha = k < rw[l ? 0 : 1] ? 1 : .25;
+            X.beginPath(); X.arc(l ? x + 8 + k * 14 : x + w - 8 - k * 14, 47, 5, 0, 7); X.fill();
+          }
+          X.globalAlpha = 1;
+        }
+        X.font = 'bold 11px system-ui'; X.textAlign = l ? 'left' : 'right';
+        let sub = CHARS[q.cid].name;
+        if (NET.active) {
+          const pname = l ? NET.p1Name : NET.p2Name;
+          sub = `${pname} [${CHARS[q.cid].name}]`;
+          if ((l && NET.side === 1) || (!l && NET.side === 2)) sub += '(あなた)';
+        }
+        if (LOCAL_VS.active) sub += l ? '(1P)' : '(2P)';
+        if (!isMatch && !l) {
+          const dumLbl = ['立ち', 'しゃがみ', 'ジャンプ', 'CPU弱', 'CPU強', 'REC再生'][TRN.dummy];
+          sub += ' [' + dumLbl + ']';
+        }
+        if (q.cid === 2) sub += ' [弾:' + q.stock + '/4]';
+        if (canSuper(q)) sub += ' ★超必殺OK';
+        else if (q.supCd > 0) sub += ' [超必殺CD:' + Math.ceil(q.supCd * STEP_MS / 1000) + 's]';
+        X.fillStyle = canSuper(q) ? '#ff9ef2' : '#b8bfd8';
+        const nameOffset = isMatch ? 38 : 4;
+        X.fillText(sub, l ? x + nameOffset : x + w - nameOffset, 51);
+      }
+
+      if (!isMatch) {
+        X.fillStyle = '#38d9a9'; X.font = 'bold 16px system-ui'; X.textAlign = 'center';
+        X.fillText('TRAINING', W / 2, 27);
+      }
+
+      if (pnT > 0) {
+        X.save(); X.globalAlpha = Math.min(.45, pnT / 35);
+        X.fillStyle = '#ff4d6d'; X.font = 'italic 900 84px system-ui'; X.textAlign = 'center';
+        X.fillText('パニッシュ', W / 2, 185); X.restore();
+      }
+
+
 
       drawFrameMeter();
       drawTrainingHUD();
@@ -3927,32 +4015,39 @@
           const fade = Math.max(0, Math.min(1, (TUNE.revCutFrames - cutT + 1) / 4, cutT / 5));
           X.fillStyle = 'rgba(0,0,0,' + (TUNE.revDimAlpha * fade).toFixed(3) + ')'; X.fillRect(0, 0, W, 360);
         } else {
-          X.fillStyle = 'rgba(0,0,0,.78)'; X.fillRect(0, 75, W, 170);
-          X.fillStyle = cutCol; X.fillRect(0, 82, W, 4); X.fillRect(0, 234, W, 4);
-          X.fillStyle = '#fff'; X.font = 'italic 900 32px system-ui'; X.textAlign = 'center';
-          X.fillText(cutTxt, W / 2, 172);
+          X.fillStyle = 'rgba(0,0,0,.35)'; X.fillRect(0, 0, W, 360);
+          X.fillStyle = 'rgba(10,12,22,.78)'; X.fillRect(0, 246, W, 62);
+          X.fillStyle = cutCol; X.fillRect(0, 246, W, 4); X.fillRect(0, 304, W, 4);
+          X.fillStyle = '#fff'; X.strokeStyle = '#000'; X.lineWidth = 4;
+          X.font = 'italic 900 28px system-ui'; X.textAlign = 'center';
+          X.strokeText(cutTxt, W / 2, 286);
+          X.fillText(cutTxt, W / 2, 286);
         }
       }
 
       if (goT > 0 && ph === 0 && cutT === 0) {
         X.save();
-        const prog = 1 - goT / 48;
-        const sc = prog < 0.2 ? 0.5 + (prog / 0.2) * 0.7 : 1.2 - ((prog - 0.2) / 0.8) * 0.2;
-        X.globalAlpha = goT < 12 ? goT / 12 : 1;
+        let cdTxt = 'GO!', cdCol = '#38d9a9', stepProg = 0, alpha = 1;
+        if (goT > 116) { cdTxt = '3'; cdCol = '#ffd34d'; stepProg = (156 - goT) / 40; }
+        else if (goT > 76) { cdTxt = '2'; cdCol = '#ff9f43'; stepProg = (116 - goT) / 40; }
+        else if (goT > 36) { cdTxt = '1'; cdCol = '#ff5d5d'; stepProg = (76 - goT) / 40; }
+        else { cdTxt = 'GO!'; cdCol = '#38d9a9'; stepProg = (36 - goT) / 36; alpha = goT < 10 ? goT / 10 : 1; }
+        const sc = stepProg < 0.2 ? 0.5 + (stepProg / 0.2) * 0.75 : 1.25 - ((stepProg - 0.2) / 0.8) * 0.25;
+        X.globalAlpha = alpha;
         X.translate(W / 2, 155);
         X.scale(sc, sc);
-        X.fillStyle = 'rgba(12,16,28,.72)';
+        X.fillStyle = 'rgba(12,16,28,.76)';
         X.fillRect(-130, -44, 260, 72);
-        X.strokeStyle = '#38d9a9';
+        X.strokeStyle = cdCol;
         X.lineWidth = 3;
         X.strokeRect(-130, -44, 260, 72);
         X.font = 'italic 900 54px system-ui';
         X.textAlign = 'center';
         X.strokeStyle = '#000';
         X.lineWidth = 6;
-        X.strokeText('GO!', 0, 14);
-        X.fillStyle = '#38d9a9';
-        X.fillText('GO!', 0, 14);
+        X.strokeText(cdTxt, 0, 16);
+        X.fillStyle = cdCol;
+        X.fillText(cdTxt, 0, 16);
         X.restore();
       }
 
@@ -4389,12 +4484,74 @@
     $('l2pStartBtn').addEventListener('pointerdown', startLocal2P);
     $('l2pStopBtn').addEventListener('pointerdown', () => stopLocal2P(0));
 
+    const oNameInp = $('oNameInp');
+    try {
+      const savedName = localStorage.getItem('fgt2d_player_name');
+      if (savedName) { oNameInp.value = savedName; NET.myName = savedName; }
+    } catch (e) { }
+    oNameInp.addEventListener('input', () => {
+      const v = oNameInp.value.trim().slice(0, 12);
+      NET.myName = v || '名無し';
+      try { localStorage.setItem('fgt2d_player_name', v); } catch (e) { }
+      if (NET.inLobby && NET.ws && NET.ws.readyState === 1) {
+        NET.ws.send(JSON.stringify({ t: 'lobby_update', name: NET.myName, cid: NET.myCid }));
+      }
+    });
+
+    function renderLobbyList(players, selfId) {
+      const box = $('oLobbyBox'), listEl = $('oLobbyList');
+      box.style.display = 'block';
+      NET.lobbySelfId = selfId;
+      if (!players || !players.length) {
+        listEl.innerHTML = '<div style="padding:6px 0;color:#8d94ad">現在ロビーにプレイヤーはいません</div>';
+        return;
+      }
+      listEl.innerHTML = '';
+      for (const pl of players) {
+        const isSelf = (pl.id === selfId);
+        const cname = (CHARS[pl.cid] && CHARS[pl.cid].name) || '弾キャラ';
+        const row = document.createElement('div');
+        row.className = 'lobby-item';
+        const info = document.createElement('div');
+        info.className = 'lobby-info';
+        const nm = document.createElement('div');
+        nm.className = 'lobby-name';
+        nm.textContent = pl.name + (isSelf ? ' (あなた)' : '');
+        const ch = document.createElement('div');
+        ch.className = 'lobby-char';
+        ch.textContent = '使用キャラ：' + cname;
+        info.appendChild(nm);
+        info.appendChild(ch);
+        row.appendChild(info);
+        if (!isSelf) {
+          const btn = document.createElement('button');
+          btn.className = 'obtn pri';
+          btn.textContent = '対戦を挑む';
+          btn.addEventListener('pointerdown', () => {
+            if (NET.ws && NET.ws.readyState === 1) {
+              NET.ws.send(JSON.stringify({ t: 'challenge', targetId: pl.id }));
+              updateModeUI(pl.name + ' さんに対戦を申し込み中...');
+            }
+          });
+          row.appendChild(btn);
+        }
+        listEl.appendChild(row);
+      }
+    }
+
+    $('btnLobbyLeave').addEventListener('pointerdown', () => {
+      stopNetMatch('ロビーから退出しました');
+    });
+
     document.querySelectorAll('#oCharRow .obtn').forEach(btn => {
       btn.addEventListener('pointerdown', () => {
         document.querySelectorAll('#oCharRow .obtn').forEach(b => b.classList.remove('sel'));
         btn.classList.add('sel');
         NET.myCid = Number(btn.dataset.cid);
         if (!NET.active) { cSel[0] = NET.myCid; setChars(); resetTrainingPos(1) }
+        if (NET.inLobby && NET.ws && NET.ws.readyState === 1) {
+          NET.ws.send(JSON.stringify({ t: 'lobby_update', name: NET.myName, cid: NET.myCid }));
+        }
       });
     });
 
@@ -4433,7 +4590,7 @@
         if (isHost) {
           updateModeUI('相手とつながりました！対戦を開始します...');
         } else {
-          sendNet({ t: 'hello', cid: NET.myCid, dly: NET.delay, ver: GAME_VER });
+          sendNet({ t: 'hello', cid: NET.myCid, dly: NET.delay, ver: GAME_VER, name: NET.myName });
         }
       });
       conn.on('data', msg => {
@@ -4445,22 +4602,27 @@
           if (msg.ver !== GAME_VER) { sendNet({ t: 'badver' }); stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
           const dly = Math.max(NET.delay, Number(msg.dly) || 0);
           const mid = newMid();
-          sendNet({ t: 'start', c1: NET.myCid, c2: Number(msg.cid) || 0, dly, mid, ver: GAME_VER });
+          NET.p1Name = NET.myName; NET.p2Name = String(msg.name || '名無し').slice(0, 12);
+          sendNet({ t: 'start', c1: NET.myCid, c2: Number(msg.cid) || 0, n1: NET.p1Name, n2: NET.p2Name, dly, mid, ver: GAME_VER });
           startNetMatch(1, NET.myCid, Number(msg.cid) || 0, dly, mid);
           return;
         }
         if (msg.t === 'start' && !isHost) {
           if (msg.ver !== GAME_VER) { stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
+          NET.p1Name = String(msg.n1 || '1P').slice(0, 12); NET.p2Name = String(msg.n2 || '2P').slice(0, 12);
           startNetMatch(2, Number(msg.c1) || 0, Number(msg.c2) || 0, Number(msg.dly) || 1, Number(msg.mid) || 1);
           return;
         }
         if (msg.t === 'rematch_req') {
           NET.rematchPeer = 1;
+          if (msg.cid !== undefined) NET.peerNextCid = Number(msg.cid);
           if (NET.rematchSelf) {
             if (NET.side === 1) {
               const mid = newMid();
-              sendNet({ t: 'rematch_go', c1: cSel[0], c2: cSel[1], dly: NET.delay, mid });
-              startNetMatch(1, cSel[0], cSel[1], NET.delay, mid);
+              const nc1 = NET.myCid;
+              const nc2 = NET.peerNextCid >= 0 ? NET.peerNextCid : cSel[1];
+              sendNet({ t: 'rematch_go', c1: nc1, c2: nc2, dly: NET.delay, mid });
+              startNetMatch(1, nc1, nc2, NET.delay, mid);
             }
           } else {
             msg = '相手が再戦を希望（画面タップで承諾）';
@@ -4503,24 +4665,40 @@
       NET.conn = wrap;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ t: 'quick' }));
+        if (cableMode) {
+          ws.send(JSON.stringify({ t: 'quick', name: NET.myName }));
+        } else {
+          NET.inLobby = 1;
+          ws.send(JSON.stringify({ t: 'lobby_join', name: NET.myName, cid: NET.myCid }));
+          updateModeUI('ロビーに入室しました！対戦したい相手を選んでください');
+        }
       };
       ws.onmessage = ev => {
         let m;
         try { m = JSON.parse(ev.data) } catch (e) { return }
         if (!m || typeof m !== 'object') return;
 
+        if (m.t === 'lobby_list') {
+          renderLobbyList(m.players, m.selfId);
+          return;
+        }
+        if (m.t === 'err') {
+          updateModeUI(m.msg || 'エラーが発生しました');
+          return;
+        }
         if (m.t === 'waiting') {
           updateModeUI(cableMode
             ? 'Type-C接続待機中... もう1台の端末でURLを開くと自動開始します'
-            : '対戦相手を自動検索中... 友達が「ネット対戦」を押すと即開始します');
+            : '対戦相手を自動検索中...');
           return;
         }
         if (m.t === 'joined') {
           myRole = Number(m.role) || 1;
+          NET.inLobby = 0;
+          $('oLobbyBox').style.display = 'none';
           if (myRole === 2) {
             startNetPing();
-            wrap.send({ t: 'hello', cid: NET.myCid, dly: NET.delay, ver: GAME_VER });
+            wrap.send({ t: 'hello', cid: NET.myCid, dly: NET.delay, ver: GAME_VER, name: NET.myName });
           }
           return;
         }
@@ -4543,21 +4721,26 @@
           if (m.ver !== GAME_VER) { wrap.send({ t: 'badver' }); stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
           const dly = cableMode ? 0 : Math.max(NET.delay, Number(m.dly) || 0);
           const mid = newMid();
-          wrap.send({ t: 'start', c1: NET.myCid, c2: Number(m.cid) || 0, dly, mid, ver: GAME_VER });
+          NET.p1Name = NET.myName; NET.p2Name = String(m.name || '名無し').slice(0, 12);
+          wrap.send({ t: 'start', c1: NET.myCid, c2: Number(m.cid) || 0, n1: NET.p1Name, n2: NET.p2Name, dly, mid, ver: GAME_VER });
           startNetMatch(1, NET.myCid, Number(m.cid) || 0, dly, mid);
           return;
         }
         if (m.t === 'start' && myRole === 2) {
           if (m.ver !== GAME_VER) { stopNetMatch('相手とゲームのバージョンが違います（自分: v' + GAME_VER + '）。両方の端末でページを再読込してください（キャッシュ削除）'); return }
+          NET.p1Name = String(m.n1 || '1P').slice(0, 12); NET.p2Name = String(m.n2 || '2P').slice(0, 12);
           startNetMatch(2, Number(m.c1) || 0, Number(m.c2) || 0, Number(m.dly) || 0, Number(m.mid) || 1);
           return;
         }
         if (m.t === 'rematch_req') {
           NET.rematchPeer = 1;
+          if (m.cid !== undefined) NET.peerNextCid = Number(m.cid);
           if (NET.rematchSelf && NET.side === 1) {
             const mid = newMid();
-            wrap.send({ t: 'rematch_go', c1: cSel[0], c2: cSel[1], dly: NET.delay, mid });
-            startNetMatch(1, cSel[0], cSel[1], NET.delay, mid);
+            const nc1 = NET.myCid;
+            const nc2 = NET.peerNextCid >= 0 ? NET.peerNextCid : cSel[1];
+            wrap.send({ t: 'rematch_go', c1: nc1, c2: nc2, dly: NET.delay, mid });
+            startNetMatch(1, nc1, nc2, NET.delay, mid);
           } else {
             msg = '相手が再戦を希望（画面タップで承諾）';
           }
@@ -4653,12 +4836,14 @@
     function requestNetRematch() {
       if (!NET.active) return;
       NET.rematchSelf = 1;
-      sendNet({ t: 'rematch_req' });
+      sendNet({ t: 'rematch_req', cid: NET.myCid });
       if (NET.rematchPeer) {
         if (NET.side === 1) {
           const mid = newMid();
-          sendNet({ t: 'rematch_go', c1: cSel[0], c2: cSel[1], dly: NET.delay, mid });
-          startNetMatch(1, cSel[0], cSel[1], NET.delay, mid);
+          const nc1 = NET.myCid;
+          const nc2 = NET.peerNextCid >= 0 ? NET.peerNextCid : cSel[1];
+          sendNet({ t: 'rematch_go', c1: nc1, c2: nc2, dly: NET.delay, mid });
+          startNetMatch(1, nc1, nc2, NET.delay, mid);
         } else {
           msg = 'ホストの開始を待機中...';
         }
