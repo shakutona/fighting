@@ -1,11 +1,5 @@
-// ws_server_2_3.js — 2D対戦格闘ゲーム用 HTTP + WebSocket ロビー＆自動マッチングサーバー
+// ws_server_2_3.js — 2D対戦格闘ゲーム用 HTTP + WebSocket ロビー・観戦・戦績対応サーバー
 // 外部ライブラリ不要（Node.js標準機能のみで動作）
-//
-// 【機能】
-//  - ロビー形式：待機中プレイヤー一覧（ユーザー名・使用キャラ）をリアルタイム配信し、相手を選んで対戦可能
-//  - 互換用の自動マッチング(quick)／ルーム指定(join)も維持
-//  - TCP_NODELAY + keepAlive で中継遅延を最小化
-//  - 20秒ごとに WebSocket Ping を送り、Render 等のプロキシによる無通信切断を防止
 
 const http = require('http');
 const fs = require('fs');
@@ -22,8 +16,10 @@ const DEAD_AFTER_MS = 70000;
 let quickWaiter = null;
 const rooms = new Map();
 const clients = new Set();
+const matches = new Map();
 let totalMatches = 0;
 let nextClientId = 1;
+let nextMatchId = 1;
 
 function writeFrame(client, opcode, payload) {
   if (!client || client.closed || client.socket.destroyed) return;
@@ -72,11 +68,17 @@ function getLobbyUsers() {
   for (const c of clients) {
     if (c.closed || c.socket.destroyed) continue;
     if (c.inLobby || c.partner) {
+      let status = 'waiting';
+      if (c.partner) status = 'playing';
+      else if (c.pendingTo || c.pendingFrom) status = 'pending';
       list.push({
         id: c.id,
         name: c.name || '名無し',
         cid: c.cid | 0,
-        status: c.partner ? 'playing' : 'waiting'
+        status,
+        wins: c.wins | 0,
+        streak: c.streak | 0,
+        matchId: c.match ? c.match.id : 0
       });
     }
   }
@@ -86,9 +88,50 @@ function getLobbyUsers() {
 function broadcastLobby() {
   const users = getLobbyUsers();
   for (const c of clients) {
-    if (!c.closed && c.inLobby && !c.partner) {
+    if (!c.closed && c.inLobby && !c.partner && !c.spectating) {
       sendJson(c, { t: 'lobby_list', selfId: c.id, users });
     }
+  }
+}
+
+function clearPending(client) {
+  if (client.pendingTo) {
+    const t = client.pendingTo;
+    client.pendingTo = null;
+    if (t.pendingFrom === client) {
+      t.pendingFrom = null;
+      sendJson(t, { t: 'challenge_canceled', name: client.name });
+    }
+  }
+  if (client.pendingFrom) {
+    const f = client.pendingFrom;
+    client.pendingFrom = null;
+    if (f.pendingTo === client) {
+      f.pendingTo = null;
+      sendJson(f, { t: 'challenge_declined', name: client.name });
+    }
+  }
+}
+
+function closeMatch(match, reason) {
+  if (!match) return;
+  matches.delete(match.id);
+  if (match.p1 && match.p1.match === match) match.p1.match = null;
+  if (match.p2 && match.p2.match === match) match.p2.match = null;
+  for (const sp of match.spectators) {
+    sp.spectating = null;
+    sendJson(sp, { t: 'spectate_end', msg: reason || '対戦が終了しました' });
+  }
+  match.spectators.clear();
+}
+
+function leaveSpectate(client) {
+  const m = client.spectating;
+  if (!m) return;
+  client.spectating = null;
+  m.spectators.delete(client);
+  if (m.p1 && !m.p1.closed) {
+    sendJson(m.p1, { t: 'spec_count', count: m.spectators.size });
   }
 }
 
@@ -100,6 +143,13 @@ function cleanupClient(client) {
 
   if (quickWaiter === client) {
     quickWaiter = null;
+  }
+
+  clearPending(client);
+  leaveSpectate(client);
+
+  if (client.match) {
+    closeMatch(client.match, '対戦相手が切断したため終了しました');
   }
 
   if (client.partner) {
@@ -121,13 +171,32 @@ function cleanupClient(client) {
 }
 
 function pairClients(p1, p2) {
+  clearPending(p1);
+  clearPending(p2);
+  leaveSpectate(p1);
+  leaveSpectate(p2);
+
   p1.partner = p2;
   p2.partner = p1;
   p1.inLobby = false;
   p2.inLobby = false;
   totalMatches++;
-  sendJson(p1, { t: 'joined', role: 1 });
-  sendJson(p2, { t: 'joined', role: 2 });
+
+  const match = { id: nextMatchId++, p1, p2, spectators: new Set() };
+  p1.match = match;
+  p2.match = match;
+  matches.set(match.id, match);
+
+  sendJson(p1, {
+    t: 'joined', role: 1, matchId: match.id,
+    p1Stats: { wins: p1.wins, streak: p1.streak },
+    p2Stats: { wins: p2.wins, streak: p2.streak }
+  });
+  sendJson(p2, {
+    t: 'joined', role: 2, matchId: match.id,
+    p1Stats: { wins: p1.wins, streak: p1.streak },
+    p2Stats: { wins: p2.wins, streak: p2.streak }
+  });
   sendJson(p1, { t: 'peer_joined' });
   broadcastLobby();
 }
@@ -140,13 +209,24 @@ function findClientById(id) {
 }
 
 function handleMessage(client, rawText) {
+  // 観戦用スナップショット配信（1Pから観戦者全員へ転送）
+  if (rawText.startsWith('{"t":"spec_state"')) {
+    if (client.match && client.match.spectators.size > 0) {
+      for (const sp of client.match.spectators) {
+        if (!sp.closed) sendText(sp, rawText);
+      }
+    }
+    return;
+  }
+
   // 対戦中の入力・制御データはパース不要。最優先で相手へ即転送
   if (client.partner && !client.partner.closed) {
     if (
       rawText.charCodeAt(0) === 123 &&
       !rawText.startsWith('{"t":"quick"') &&
       !rawText.startsWith('{"t":"join"') &&
-      !rawText.startsWith('{"t":"lobby_')
+      !rawText.startsWith('{"t":"lobby_') &&
+      !rawText.startsWith('{"t":"match_result"')
     ) {
       sendText(client.partner, rawText);
       return;
@@ -163,6 +243,11 @@ function handleMessage(client, rawText) {
 
   // ロビー入室
   if (msg.t === 'lobby_join') {
+    clearPending(client);
+    leaveSpectate(client);
+    if (client.match) {
+      closeMatch(client.match, '対戦相手がロビーに戻りました');
+    }
     if (client.partner) {
       const p = client.partner;
       client.partner = null;
@@ -188,13 +273,13 @@ function handleMessage(client, rawText) {
     return;
   }
 
-  // ロビーで相手を選んで対戦申し込み
+  // ロビーで相手を選んで対戦申し込み（承諾待ちへ）
   if (msg.t === 'lobby_challenge') {
-    if (client.partner) return;
+    if (client.partner || client.pendingTo || client.pendingFrom) return;
     const targetId = Number(msg.targetId);
     const target = findClientById(targetId);
-    if (!target || target === client || !target.inLobby || target.partner) {
-      sendJson(client, { t: 'lobby_err', msg: '選択した相手はすでに対戦中か退出しました' });
+    if (!target || target === client || !target.inLobby || target.partner || target.pendingTo || target.pendingFrom) {
+      sendJson(client, { t: 'lobby_err', msg: '選択した相手は現在対戦中か申し込み対応中です' });
       broadcastLobby();
       return;
     }
@@ -204,7 +289,103 @@ function handleMessage(client, rawText) {
     if (msg.cid !== undefined) {
       client.cid = Number(msg.cid) || 0;
     }
-    pairClients(target, client);
+    client.pendingTo = target;
+    target.pendingFrom = client;
+    sendJson(target, {
+      t: 'challenge_recv',
+      fromId: client.id,
+      name: client.name,
+      cid: client.cid,
+      wins: client.wins,
+      streak: client.streak
+    });
+    sendJson(client, { t: 'challenge_sent', targetId: target.id, name: target.name });
+    broadcastLobby();
+    return;
+  }
+
+  // 対戦申し込みへの返答（承諾 / 拒否）
+  if (msg.t === 'lobby_challenge_res') {
+    const challenger = client.pendingFrom;
+    if (!challenger) return;
+    client.pendingFrom = null;
+    if (challenger.pendingTo === client) challenger.pendingTo = null;
+    if (msg.accept && !challenger.closed && challenger.inLobby && !challenger.partner) {
+      // 申し込まれた側(client)を1P、申し込んだ側(challenger)を2Pとして対戦開始
+      pairClients(client, challenger);
+    } else {
+      if (!challenger.closed) {
+        sendJson(challenger, { t: 'challenge_declined', name: client.name });
+      }
+      broadcastLobby();
+    }
+    return;
+  }
+
+  // 対戦申し込みのキャンセル
+  if (msg.t === 'lobby_challenge_cancel') {
+    clearPending(client);
+    broadcastLobby();
+    return;
+  }
+
+  // 観戦開始
+  if (msg.t === 'lobby_spectate') {
+    if (client.partner) return;
+    clearPending(client);
+    leaveSpectate(client);
+    const mid = Number(msg.matchId);
+    const match = matches.get(mid);
+    if (!match || !match.p1 || match.p1.closed || !match.p2 || match.p2.closed) {
+      sendJson(client, { t: 'lobby_err', msg: 'その対戦はすでに終了しています' });
+      broadcastLobby();
+      return;
+    }
+    client.inLobby = false;
+    client.spectating = match;
+    match.spectators.add(client);
+    sendJson(client, {
+      t: 'spectate_joined',
+      matchId: match.id,
+      p1: { name: match.p1.name, cid: match.p1.cid, wins: match.p1.wins, streak: match.p1.streak },
+      p2: { name: match.p2.name, cid: match.p2.cid, wins: match.p2.wins, streak: match.p2.streak }
+    });
+    sendJson(match.p1, { t: 'spec_count', count: match.spectators.size });
+    broadcastLobby();
+    return;
+  }
+
+  // 観戦終了
+  if (msg.t === 'lobby_spectate_leave') {
+    leaveSpectate(client);
+    client.inLobby = true;
+    broadcastLobby();
+    return;
+  }
+
+  // 試合決着時の戦績・連勝数更新（1Pから報告）
+  if (msg.t === 'match_result' && client.match && client.match.p1 === client) {
+    const m = client.match;
+    const w = Number(msg.winnerSide);
+    if (w === 0) {
+      m.p1.wins++;
+      m.p1.streak++;
+      if (m.p2) m.p2.streak = 0;
+    } else if (w === 1 && m.p2) {
+      m.p2.wins++;
+      m.p2.streak++;
+      m.p1.streak = 0;
+    }
+    const statPayload = {
+      t: 'stats_update',
+      p1Stats: { wins: m.p1.wins, streak: m.p1.streak },
+      p2Stats: m.p2 ? { wins: m.p2.wins, streak: m.p2.streak } : { wins: 0, streak: 0 }
+    };
+    sendJson(m.p1, statPayload);
+    if (m.p2 && !m.p2.closed) sendJson(m.p2, statPayload);
+    for (const sp of m.spectators) {
+      if (!sp.closed) sendJson(sp, statPayload);
+    }
     return;
   }
 
@@ -309,7 +490,13 @@ server.on('upgrade', (req, socket) => {
     id: nextClientId++,
     name: '名無し',
     cid: 0,
+    wins: 0,
+    streak: 0,
     inLobby: false,
+    pendingTo: null,
+    pendingFrom: null,
+    match: null,
+    spectating: null,
     socket,
     buf: Buffer.alloc(0),
     closed: false,
@@ -390,7 +577,7 @@ server.listen(PORT, '0.0.0.0', () => {
   const rawHost = os.hostname();
   const localHost = rawHost.endsWith('.local') ? rawHost : `${rawHost}.local`;
   console.log('======================================================');
-  console.log(` 2D対戦格闘ゲーム ロビーサーバー起動完了 (ポート: ${PORT})`);
+  console.log(` 2D対戦格闘ゲーム ロビー・観戦サーバー起動完了 (ポート: ${PORT})`);
   console.log('------------------------------------------------------');
   console.log(` 【PC側(1P) URL】   http://localhost:${PORT}/?auto=local`);
   console.log(` 【スマホ側(2P) URL】 http://${localHost}:${PORT}/?auto=local`);
