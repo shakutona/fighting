@@ -658,6 +658,7 @@
         <button class="obtn" data-rcid="0" style="padding:5px 9px;font-size:11.5px">弾キャラ</button>
         <button class="obtn" data-rcid="1" style="padding:5px 9px;font-size:11.5px">肉弾キャラ</button>
         <button class="obtn" data-rcid="2" style="padding:5px 9px;font-size:11.5px">特殊キャラ</button>
+        <button class="obtn" data-rcid="3" style="padding:5px 9px;font-size:11.5px">修羅キャラ</button>
       </div>
     </div>
     <div class="orow" style="justify-content:center;width:100%">
@@ -697,12 +698,14 @@
         <button class="obtn sel" data-c1="0">弾キャラ</button>
         <button class="obtn" data-c1="1">肉弾キャラ</button>
         <button class="obtn" data-c1="2">特殊キャラ</button>
+        <button class="obtn" data-c1="3">修羅キャラ</button>
       </div>
       <div class="olbl">2P（ダミー）キャラ</div>
       <div class="orow" id="tC2Row">
         <button class="obtn" data-c2="0">弾キャラ</button>
         <button class="obtn sel" data-c2="1">肉弾キャラ</button>
         <button class="obtn" data-c2="2">特殊キャラ</button>
+        <button class="obtn" data-c2="3">修羅キャラ</button>
       </div>
       <div class="olbl">リセット時の開始位置</div>
       <div class="orow" id="tPosRow">
@@ -783,6 +786,9 @@
         <button class="obtn sel" id="tVisSnd">音:ON</button>
         <button class="obtn" id="tPadSizeBtn">ボタンサイズ:標準</button>
         <button class="obtn pri" id="tKeyCfgBtn">🎮 キー・パッド設定</button>
+        <button class="obtn grn" id="tSpriteLoadBtn">🎨 1P画像テスト読込</button>
+        <button class="obtn" id="tSpriteClearBtn">棒人間に戻す</button>
+        <input type="file" id="tSpriteFile" accept="image/*" style="display:none">
       </div>
     </div>
   </div>
@@ -822,6 +828,7 @@
         <button class="obtn sel" data-cid="0">弾キャラ</button>
         <button class="obtn" data-cid="1">肉弾キャラ</button>
         <button class="obtn" data-cid="2">特殊キャラ</button>
+        <button class="obtn" data-cid="3">修羅キャラ</button>
       </div>
       <div style="margin-top:8px" class="orow" id="oDlyRow">
         <span style="font-size:12px;color:#b8bfd8">入力遅延：</span>
@@ -921,7 +928,7 @@
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
-    const GAME_VER = '3.8.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
+    const GAME_VER = '4.1.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
     const CHORD_WIN = 4;              // 同時押し(P+K投げ / SP+P,K でEX 等)とみなす最大フレーム差
     // ★【調整】距離(px)：
     const SEP = {
@@ -1005,6 +1012,10 @@
       gbHitstop: 12,              // ガードブレイク成立時のヒットストップ
       gbShake: 10,                // ガードブレイク時の画面揺れ
       gbPush: 14,                 // ガードブレイク時に相手が押される距離(px)
+      gbArmorHits: 2,             // ガードブレイクのスーパーアーマー回数（2発まで耐える・ダメージはそのまま入る）
+      gbArmorStart: 3,            // GB発動の何F目からアーマーが有効になるか
+      cmdDmgMul: 1.2,             // コマンド必殺技の威力倍率（簡易SPの1.2倍）
+      diveVx: 6.2, diveVy: 7.4,   // 急降下キック（天墜脚）の速度
 
       /* --- カウンター(相手の攻撃の出掛かり/持続中に当てる) --- */
       counterDmgMul: 1.2,         // カウンターのダメージ倍率
@@ -1059,6 +1070,7 @@
       throwAnimSlam: 40,          // 通常投げの演出フレーム（＝投げ終わるまで）
       throwAnimSuplex: 55,        // サプレックス系
       throwAnimDrain: 60,         // ゲージ強奪系
+      throwAnimShun: 68,          // 滅殺・天衝（超必殺コマ投げ）
       throwTechStun: 30,          // 投げ抜け成功後、両者の硬直フレーム
       throwHitstop: 8, throwShake: 9,   // 投げ決着時のヒットストップ / 画面揺れ
 
@@ -1135,6 +1147,7 @@
       upBack: 10, upTop: 115, upBelow: 6,   // 打ち上げ技：背中側・上端・地面より下へ
       revTop: 94, revBottom: 6,             // 無敵切り返し：高さ（上端/下端）
       aaPartInvParts: ['head', 'armF', 'armB'],   // 部位別の対空無敵(aaPartInv)で、空中の相手の攻撃が当たらなくなる部位
+      legProjInvParts: ['legF', 'legB'],          // 下半身の弾無敵(legProjInv)で、飛び道具が当たらなくなる部位
       antiAirBack: 0,                      // 対空P(antiAir:1)：背中側へ何px判定を出すか
       antiAirTop: 118, antiAirBottom: 70,   // 対空P：判定の上端/下端（地面からの高さ px。頭上〜胸の高さ）
       airKickMargin: 12,                    // ジャンプK：足の位置から上下に ±
@@ -1176,6 +1189,8 @@
         else if (type === 'cd') { o.type = 'sine'; o.frequency.setValueAtTime(660, t); g.gain.setValueAtTime(.18, t); g.gain.exponentialRampToValueAtTime(.001, t + .14); o.start(t); o.stop(t + .15) }
         else if (type === 'fight') { o.type = 'triangle'; o.frequency.setValueAtTime(880, t); o.frequency.exponentialRampToValueAtTime(1180, t + .22); g.gain.setValueAtTime(.24, t); g.gain.exponentialRampToValueAtTime(.001, t + .24); o.start(t); o.stop(t + .25) }
         else if (type === 'ex') { o.type = 'sine'; o.frequency.setValueAtTime(740, t); o.frequency.exponentialRampToValueAtTime(1480, t + .16); g.gain.setValueAtTime(.2, t); g.gain.exponentialRampToValueAtTime(.001, t + .17); o.start(t); o.stop(t + .18) }
+        else if (type === 'arm') { o.type = 'square'; o.frequency.setValueAtTime(520, t); o.frequency.exponentialRampToValueAtTime(240, t + .1); g.gain.setValueAtTime(.22, t); g.gain.exponentialRampToValueAtTime(.001, t + .11); o.start(t); o.stop(t + .12) }
+        else if (type === 'shun') { o.type = 'sawtooth'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .13); g.gain.setValueAtTime(.24, t); g.gain.exponentialRampToValueAtTime(.001, t + .14); o.start(t); o.stop(t + .15) }
       } catch (e) { }
     }
 
@@ -1257,7 +1272,7 @@
           XF:  { n: 'EXライジングアッパー', s: 3,  a: 10, t: 60, d: 1300, r: 1.05, h: 'h', g: -44, v: 0,  kd: 140, up: 1, inv: 14 },
           XD:  { n: 'EXエア・シューター',   s: 9,  a: 0,  t: 25, fb: 'z_air_ex', hop: 1 },
           XB:  { n: 'EXエナジーナックル',   s: 9,  a: 3,  t: 22, d: 1300, r: 1.85, h: 'm', g: 11,  v: 22, lowWindup: 1 },
-          GB:  { n: 'ショックブロー(GB)',   s: 28, a: 3,  t: 54, d: 300,  r: 1.5,  h: 'h', kd: 45,  gb: 60 },
+          GB:  { n: 'ショックブロー(GB)',   s: 28, a: 3,  t: 54, d: 300,  r: 1.5,  h: 'h', kd: 45,  gb: 60, armor: 2 },
           SUP: { n: 'ギガ・ブラスター',     s: 7, a: 0,  t: 50, fb: 'z_sup', inv: 14 },
           T:   { n: '投げ',                 s: 5,  a: 1,  t: 35, d: 1000, r: .9,   th: 1, thType: 'slam', kd: 50 },
           REV: { n: '無敵切り返し',         s: 1,  a: 6,  t: 40, d: 0,    r: 1.9,  h: 'h', inv: 40, rev: 1 }
@@ -1288,7 +1303,7 @@
           XB:  { n: 'EXダッシュスルー',         s: 1,  a: 20, t: 20, mv: 9.4,  projInv: 22, dashDerive: { P: 'XBSP', K: 'XBSK' } },
           XBSP:{ n: 'EXラッシュフック(中段)',   s: 5,  a: 3,  t: 24, d: 1040, r: 2.15, h: 'm', g: -4,  v: 9 },
           XBSK:{ n: 'EXラッシュスライディング', s: 5,  a: 5,  t: 26, d: 1040, r: 1.8,  h: 'l', g: 5,  v: 0,  kd: 52, mv: 8, lowSlide: 1 },
-          GB:  { n: 'ヘビーナックル(GB)',       s: 25, a: 3,  t: 52, d: 300,  r: 1.95, h: 'h', kd: 45,  gb: 60, mv: 2.2 },
+          GB:  { n: 'ヘビーナックル(GB)',       s: 25, a: 3,  t: 52, d: 300,  r: 1.95, h: 'h', kd: 45,  gb: 60, mv: 2.2, armor: 2 },
           SUP: { n: 'ファイナル・ブレイカー',   s: 5,  a: 10,  t: 65, d: 4000, r: 2.35, h: 'h', g: -45, v: 0,  kd: 75, inv: 16, mv: 12, superLock: 1 },
           T:   { n: '投げ',                     s: 5,  a: 1,  t: 35, d: 1000, r: 1.05, th: 1, thType: 'slam', kd: 60 },
           REV: { n: '無敵切り返し',             s: 1,  a: 6,  t: 40, d: 0,    r: 1.9,  h: 'h', inv: 40, rev: 1 }
@@ -1318,10 +1333,42 @@
           XF:  { n: 'EXブーメランスロー',         s: 6,  a: 0,  t: 12, fb: 's_boom_ex', needStock: 1 },
           XD:  { n: 'EXエナジーソウ(大強奪)',     s: 5,  a: 2,  t: 44, d: 750, r: 1.1,  th: 1, thType: 'drain', cmd: 1, steal: 1.5, pushFar: 1, kd: 65 },
           XB:  { n: 'EXシャドウスライド',         s: 6,  a: 20, t: 30, d: 950,  r: 1.8,  h: 'l', g: -8,  v: 0,  kd: 92, mv: 9.5, projInv: 24, lowSlide: 1, crossupGuard: 1 },
-          GB:  { n: 'ロングブレイカー(GB)',       s: 28, a: 3,  t: 54, d: 300,  r: 2.3,  h: 'h', kd: 45,  gb: 60, exC: 1 },
+          GB:  { n: 'ロングブレイカー(GB)',       s: 28, a: 3,  t: 54, d: 300,  r: 2.3,  h: 'h', kd: 45,  gb: 60, exC: 1, armor: 2 },
           SUP: { n: 'カオス・ジェネレーター',     s: 0,  a: 0,  t: 0, chaos: 1 },
           T:   { n: '投げ',                       s: 5,  a: 1,  t: 35, d: 1000, r: .9,   th: 1, thType: 'slam', kd: 60 },
           REV: { n: '無敵切り返し',               s: 1,  a: 6,  t: 40, d: 0,    r: 1.9,  h: 'h', inv: 44, rev: 1 }
+        }
+      },
+      {
+        id: 3, name: '修羅キャラ', role: '高火力・コマンド特化', spd: 4.2, maxHp: 9000, col: '#ff922b',
+        chKey: 'NS', chTo: 'NSM', superName: '滅殺・天衝', gbName: '砕岩掌', hasCmd: 1,
+        M: {
+          NP:  { n: '剛拳',                 s: 7,  a: 3,  t: 28, d: 1150, r: 1.4,  h: 'h', g: -5,  v: 3,  c: 1 },
+          FP:  { n: '兜割り(中段)',         s: 12, a: 3,  t: 36, d: 900,  r: 1.35, h: 'm', g: -3,  v: 3,  c: 1 },
+          DP:  { n: '疾風突き',             s: 4,  a: 2,  t: 12, d: 380,  r: 1.05, h: 'h', g: -2,  v: 5,  c: 1, rapid: 1 },
+          BP:  { n: '剛烈双拳(2連正拳)',    s: 15, a: 3,  t: 44, d: 1050, r: 1.45, h: 'h', g: -5,  v: 6,  c: 1, mv: 2.0, mvEnd: 24, lightPush: 1, doublePunch: 1, hit2: { s: 24, a: 4, d: 1350, r: 1.65, h: 'h', g: -4, v: 5 } },
+          NK:  { n: '双旋廻し蹴り(2連)',    s: 7,  a: 3,  t: 36, d: 500,  r: 1.55, h: 'h', g: 0,   v: 4,  mv: 2.1, mvEnd: 20, lightPush: 1, spinDoubleKick: 1, hit2: { s: 16, a: 3, d: 650, r: 1.75, h: 'h', g: 1, v: 4 } },
+          FK:  { n: '踏み込み蹴り',         s: 10, a: 3,  t: 34, d: 1050, r: 1.65, h: 'h', g: 0,   v: 3,  mv: 1.8 },
+          DK:  { n: '薙ぎ払い',             s: 8,  a: 3,  t: 36, d: 800,  r: 1.6,  h: 'l', g: -6,  v: 0,  kd: 95 },
+          BK:  { n: '昇天脚(対空)',         s: 8,  a: 5,  t: 31, d: 1000, r: 1.15, h: 'h', g: -4,  v: 3,  antiAir: 1, aaPartInv: 15, highAntiAirKick: 1 },
+          JP:  { n: 'ジャンプP',            s: 5,  a: 4,  t: 24, d: 1000, r: 1.0,  h: 'm', g: -4,  v: 4,  air: 1 },
+          JK:  { n: 'ジャンプK',            s: 6,  a: 6,  t: 28, d: 800,  r: 1.5,  backR: 1.35, h: 'm', g: -3, v: 3, air: 1 },
+          JDK: { n: '天墜脚(急降下)',       s: 6,  a: 18, t: 28, d: 950,  r: 1.2,  h: 'm', g: 2,   v: 6,  air: 1, dive: 1 },
+          NS:  { n: '焔波',                 s: 11, a: 0,  t: 40, fb: 'a_norm', exC: 1 },
+          NSM: { n: '業炎波(タメ)',         s: 2,  a: 0,  t: 16, fb: 'a_flame', exC: 1 },
+          AS:  { n: '空裂波',               s: 8,  a: 0,  t: 26, fb: 'a_air', air: 1 },
+          FS:  { n: '昇焔拳',               s: 4,  a: 10, t: 54, d: 1350, r: 1.1,  h: 'h', g: -32, v: 0,  kd: 110, up: 1, aaInv: 11 },
+          DS:  { n: '影歩(すり抜け)',       s: 1,  a: 0,  t: 24, mv: 7.5, strikeInv: 18, projInv: 18, crossupGuard: 1, ghost: 1 },
+          BS:  { n: '旋風脚',               s: 7,  a: 12, t: 31, d: 1150, r: 1.35, h: 'h', g: -10, v: 0,  kd: 85,  mv: 5.8, mvAfterStart: 1, exC: 1, spinKick: 1, spinLaunch: 1, spinVy: -6.8, spinVx: 0.85, legProjInv: 21 },
+          XN:  { n: 'EX焔波',               s: 7,  a: 0,  t: 22, fb: 'a_ex' },
+          XF:  { n: 'EX昇焔拳',             s: 3,  a: 10, t: 58, d: 1700, r: 1.15, h: 'h', g: -40, v: 0,  kd: 135, up: 1, inv: 14 },
+          XD:  { n: 'EX影歩',               s: 1,  a: 0,  t: 20, mv: 10.5, inv: 18, crossupGuard: 1, ghost: 1 },
+          XB:  { n: 'EX旋風脚',             s: 5,  a: 14, t: 32, d: 1450, r: 1.5,  h: 'h', g: -6,  v: 0,  kd: 100, mv: 8.2, mvAfterStart: 1, spinKick: 1, spinLaunch: 1, spinVy: -7.7, spinVx: 0.7, legProjInv: 23 },
+          XAS: { n: 'EX空裂波',             s: 6,  a: 0,  t: 22, fb: 'a_air_ex', air: 1 },
+          GB:  { n: '砕岩掌(GB)',           s: 26, a: 3,  t: 52, d: 350,  r: 1.6,  h: 'h', kd: 45,  gb: 60, mv: 1.6, armor: 2 },
+          SUP: { n: '滅殺・天衝',           s: 5,  a: 14, t: 52, d: 3900, r: 1.25, th: 1, thType: 'shun', cmd: 1, inv: 16, mv: 14, mvAfterStart: 1, kd: 75 },
+          T:   { n: '投げ',                 s: 5,  a: 1,  t: 35, d: 1100, r: .95,  th: 1, thType: 'slam', kd: 55 },
+          REV: { n: '無敵切り返し',         s: 1,  a: 6,  t: 40, d: 0,    r: 1.9,  h: 'h', inv: 40, rev: 1 }
         }
       }];
     for (const c of CHARS) for (const k in c.M) c.M[k].k = k;
@@ -1349,18 +1396,27 @@
       s_boom_ex: { pwr: 2, d: 750,  h: 'h', g: 18, v: 24, spd: 5.8,  retSpd: 5.0, maxLife: 74, rad: 14, col: '#ff77e9', boom: 1, gDrain: .2, chip: 0 },
       s_boom_chg:{ pwr: 2, d: 800,  h: 'h', g: 24, v: 28, spd: 5.2,  retSpd: 4.5, maxLife: 74, rad: 16, col: '#ffe250', boom: 1, gDrain: .35, chip: 0 },
       s_chaos_m: { pwr: 1, d: 800,  h: 'm', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#ff6b9d', chip: 0 },
-      s_chaos_l: { pwr: 1, d: 800,  h: 'l', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#5ce1e6', chip: 0 }
+      s_chaos_l: { pwr: 1, d: 800,  h: 'l', g: 14, v: 18, spd: 6.4,  rad: 12, col: '#5ce1e6', chip: 0 },
+      a_norm:    { pwr: 1, d: 800,  h: 'h', g: 16, v: 22, spd: 8.5,  rad: 10, col: '#ff922b', one: 1 },
+      a_flame:   { pwr: 2, d: 1300, h: 'h', g: 30, v: 0,  kd: 80, spd: 10.5, rad: 15, col: '#ff4d4d', one: 1, chip: 100 },
+      a_ex:      { pwr: 2, d: 1100, h: 'h', g: 26, v: 30, kd: 70, spd: 13,   rad: 12, col: '#ffd34d', twice: 1 },
+      a_air:     { pwr: 1, d: 750,  h: 'm', g: 12, v: 20, spd: 6.5,  vy: 5.2, rad: 9,  col: '#ff922b', one: 1 },
+      a_air_ex:  { pwr: 2, d: 950,  h: 'm', g: 22, v: 34, spd: 7.5,  vy: 5.6, rad: 11, col: '#ffd34d', twice: 1 }
     };
 
     let cSel = [0, 1];
-    const mk = (x, cid) => ({
-      x, y: 0, vy: 0, vx: 0, jx: 0, f: 1, hp: 1e4, rhp: 1e4, g: 0, s: 'i', t: 0, dnMax: 50, supCd: 0, m: null, fr: 0, cmb: 0,
-      cid, c: CHARS[cid].col, fb: 0, n: '', cr: 0, gd: 0, inL: 0, inR: 0, hit: 0, gw: 0, airUsed: 0,
-      stock: cid === 2 ? 1 : 0, bkTap: 0, prevBk: 0, thWin: 0, thBy: null, thM: null, thDir: 1,
-      thType: 'slam', thDur: 28, thTarget: null, thBaseX: 0,
-      chaosQ: 0, chaosT: 0, chaosIdx: 0, pop: '', popT: 0, w: 0, cf: 0,
-      cd: 0, dn: 0, cs: 0, pun: false, lsid: 0, mid: 0, twT: 0, twK: '', wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, exGlow: 0, pend: []
-    });
+    const mk = (x, cid) => {
+      const mh = CHARS[cid].maxHp || 10000;
+      return {
+        x, y: 0, vy: 0, vx: 0, jx: 0, f: 1, hp: mh, rhp: mh, maxHp: mh, g: 0, s: 'i', t: 0, dnMax: 50, supCd: 0, m: null, fr: 0, cmb: 0,
+        cid, c: CHARS[cid].col, fb: 0, n: '', cr: 0, gd: 0, inL: 0, inR: 0, hit: 0, gw: 0, airUsed: 0,
+        stock: cid === 2 ? 1 : 0, bkTap: 0, prevBk: 0, thWin: 0, thBy: null, thM: null, thDir: 1,
+        thType: 'slam', thDur: 28, thTarget: null, thBaseX: 0,
+        chaosQ: 0, chaosT: 0, chaosIdx: 0, pop: '', popT: 0, w: 0, cf: 0,
+        cd: 0, dn: 0, cs: 0, pun: false, lsid: 0, mid: 0, twT: 0, twK: '', wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, exGlow: 0,
+        armLeft: 0, armFlash: 0, cmdBonus: 0, dirHist: [], shunSeq: [], pend: []
+      };
+    };
     let P = mk(210, 0), E = mk(430, 1);
     let fbs = [], sparks = [], ph = 0, pt = 0, msg = '', rw = [0, 0], ai = { t: 0, a: 'x', f: 0 }, FR = 0, pnT = 0, cutT = 0, cutTxt = '', cutCol = '#fff', cutSide = 0, goT = 0, koSlowT = 0, endType = '', winSide = -1;
     let T = TUNE.roundFrames, HS = 0, SHK = 0, SID = 0;
@@ -1440,7 +1496,7 @@
 
     function serializeFighter(p) {
       return {
-        x: p.x, y: p.y, vy: p.vy, vx: p.vx, jx: p.jx, f: p.f, hp: p.hp, rhp: p.rhp, g: p.g,
+        x: p.x, y: p.y, vy: p.vy, vx: p.vx, jx: p.jx, f: p.f, hp: p.hp, rhp: p.rhp, maxHp: p.maxHp || 10000, g: p.g,
         s: p.s, t: p.t, dnMax: p.dnMax, supCd: p.supCd,
         mKey: p.m ? p.m.k : null, fr: p.fr, cmb: p.cmb,
         cid: p.cid, c: p.c, fb: p.fb, n: p.n, cr: p.cr, gd: p.gd,
@@ -1456,6 +1512,8 @@
         pop: p.pop, popT: p.popT, w: p.w, cf: p.cf,
         cd: p.cd, dn: p.dn, cs: p.cs, pun: p.pun, lsid: p.lsid, mid: p.mid,
         twT: p.twT, twK: p.twK, spinHits: p.spinHits, spinKd: p.spinKd, spinStun: p.spinStun, exGlow: p.exGlow,
+        armLeft: p.armLeft, armFlash: p.armFlash, cmdBonus: p.cmdBonus,
+        dirHist: p.dirHist.slice(), shunSeq: p.shunSeq.map(e => ({ k: e.k, t: e.t })),
         pend: p.pend.map(e => ({ b: e.b, t: e.t })),
         wakeupBuf: p.wakeupBuf ? { ...p.wakeupBuf, pr: { ...p.wakeupBuf.pr } } : null
       };
@@ -1464,7 +1522,7 @@
     function restoreFighter(p, st) {
       const M = CHARS[st.cid].M;
       p.x = st.x; p.y = st.y; p.vy = st.vy; p.vx = st.vx; p.jx = st.jx;
-      p.f = st.f; p.hp = st.hp; p.rhp = st.rhp !== undefined ? st.rhp : st.hp; p.g = st.g; p.s = st.s; p.t = st.t;
+      p.f = st.f; p.hp = st.hp; p.rhp = st.rhp !== undefined ? st.rhp : st.hp; p.maxHp = st.maxHp || CHARS[st.cid].maxHp || 10000; p.g = st.g; p.s = st.s; p.t = st.t;
       p.dnMax = st.dnMax; p.supCd = st.supCd;
       p.m = st.mKey ? M[st.mKey] : null;
       p.fr = st.fr; p.cmb = st.cmb; p.cid = st.cid; p.c = st.c;
@@ -1481,6 +1539,8 @@
       p.pop = st.pop; p.popT = st.popT; p.w = st.w; p.cf = st.cf;
       p.cd = st.cd; p.dn = st.dn; p.cs = st.cs; p.pun = st.pun; p.lsid = st.lsid; p.mid = st.mid;
       p.twT = st.twT; p.twK = st.twK; p.spinHits = st.spinHits || 0; p.spinKd = st.spinKd || 0; p.spinStun = st.spinStun || 0; p.exGlow = st.exGlow || 0;
+      p.armLeft = st.armLeft || 0; p.armFlash = st.armFlash || 0; p.cmdBonus = st.cmdBonus || 0;
+      p.dirHist = (st.dirHist || []).slice(); p.shunSeq = (st.shunSeq || []).map(e => ({ k: e.k, t: e.t }));
       p.pend = (st.pend || []).map(e => ({ b: e.b, t: e.t }));
       p.wakeupBuf = st.wakeupBuf ? { ...st.wakeupBuf, pr: { ...st.wakeupBuf.pr } } : null;
     }
@@ -1511,7 +1571,7 @@
           kind: b.kind, x: b.x, y: b.y, px: b.px, py: b.py,
           vx: b.vx, vy: b.vy, dir: b.dir, life: b.life, ret: b.ret,
           hits: b.hits, wait: b.wait, spd: b.spd || 0,
-          hitLock: b.hitLock || 0, sid: b.sid || 0, dead: b.dead || 0
+          hitLock: b.hitLock || 0, sid: b.sid || 0, dead: b.dead || 0, cmdBonus: b.cmdBonus || 0
         })),
         sparks: sparks.map(s => ({ x: s.x, y: s.y, col: s.col, t: s.t })),
         I: cloneInpObj(I),
@@ -1541,7 +1601,7 @@
         kind: b.kind, x: b.x, y: b.y, px: b.px, py: b.py,
         vx: b.vx, vy: b.vy, dir: b.dir, life: b.life, ret: b.ret,
         hits: b.hits, wait: b.wait, spd: b.spd,
-        hitLock: b.hitLock, sid: b.sid, dead: b.dead
+        hitLock: b.hitLock, sid: b.sid, dead: b.dead, cmdBonus: b.cmdBonus || 0
       }));
       sparks = snap.sparks.map(s => ({ x: s.x, y: s.y, col: s.col, t: s.t }));
       restoreInpObj(I, snap.I);
@@ -1919,7 +1979,7 @@
       return q.s === 'atk' || q.s === 'ch' || q.s === 'hs' || q.s === 'bs' || q.s === 'gb' || q.s === 'dn' || q.s === 'spin' || q.s === 'thAtk' || q.s === 'thDef' || q.thWin > 0;
     }
     function classifyFrame(q) {
-      const inv = (isInv(q, 0) && isInv(q, 1)) ? 3 : (q.s === 'atk' && q.m && q.m.projInv && q.fr <= q.m.projInv) ? 2 : (q.s === 'atk' && q.m && q.m.aaInv && q.fr <= q.m.aaInv) ? 1 : 0;
+      const inv = (isInv(q, 0) && isInv(q, 1)) ? 3 : (q.s === 'atk' && q.m && ((q.m.projInv && q.fr <= q.m.projInv) || (q.m.legProjInv && q.fr <= q.m.legProjInv))) ? 2 : (q.s === 'atk' && q.m && ((q.m.aaInv && q.fr <= q.m.aaInv) || (q.m.aaPartInv && q.fr <= q.m.aaPartInv))) ? 1 : 0;
       if (q.thWin > 0) return { t: 'grab', inv: 3, lbl: '掴み' };
       if (q.s === 'thAtk') return { t: 'act', inv: 3, lbl: '投げ動作' };
       if (q.s === 'thDef') return { t: 'stun', inv: 3, lbl: '被投げ' };
@@ -1929,6 +1989,10 @@
         if (q.fr < m.s) return { t: 'start', inv, lbl: '発生前' };
         const actEnd = m.a > 0 ? m.s + m.a : m.s + 1;
         if (q.fr < actEnd) return { t: 'act', inv, lbl: '持続' };
+        if (m.hit2) {
+          if (q.fr < m.hit2.s) return { t: 'start', inv, lbl: '2段発生前' };
+          if (q.fr < m.hit2.s + m.hit2.a) return { t: 'act', inv, lbl: '2段持続' };
+        }
         return { t: 'rec', inv, lbl: '硬直' };
       }
       if (q.s === 'hs' || q.s === 'bs' || q.s === 'gb' || q.s === 'dn' || q.s === 'spin') return { t: 'stun', inv, lbl: '被硬直' };
@@ -1974,8 +2038,8 @@
     }
     function round() {
       for (const q of [P, E]) {
-        const cid = q.cid;
-        Object.assign(q, { hp: 1e4, rhp: 1e4, s: 'i', t: 0, dnMax: 50, supCd: 0, y: 0, vy: 0, vx: 0, cmb: 0, fb: 0, cr: 0, airUsed: 0, n: '', stock: cid === 2 ? 1 : 0, thWin: 0, thTarget: null, chaosQ: 0, chaosT: 0, chaosIdx: 0, popT: 0, cd: 0, dn: 0, cs: 0, twT: 0, wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, exGlow: 0, pend: [] });
+        const cid = q.cid, mh = CHARS[cid].maxHp || 10000;
+        Object.assign(q, { hp: mh, rhp: mh, maxHp: mh, s: 'i', t: 0, dnMax: 50, supCd: 0, y: 0, vy: 0, vx: 0, cmb: 0, fb: 0, cr: 0, airUsed: 0, n: '', stock: cid === 2 ? 1 : 0, thWin: 0, thTarget: null, chaosQ: 0, chaosT: 0, chaosIdx: 0, popT: 0, cd: 0, dn: 0, cs: 0, twT: 0, wakeupBuf: null, spinHits: 0, spinKd: 0, spinStun: 0, exGlow: 0, armLeft: 0, armFlash: 0, cmdBonus: 0, dirHist: [], shunSeq: [], pend: [] });
       }
       P.x = 160; E.x = 480; P.f = 1; E.f = -1; fbs = []; sparks = []; msg = ''; ph = 0; cutT = 0; cutSide = 0; endType = ''; winSide = -1; koSlowT = 0; goT = (NET.active || LOCAL_VS.active) ? 156 : 0; resetFM(); T = TUNE.roundFrames; HS = 0;
       const ro = document.getElementById('resOverlay'); if (ro) ro.classList.remove('open');
@@ -1986,11 +2050,12 @@
     function resetTrainingPos(silent) {
       if (NET.active || LOCAL_VS.active) return;
       for (const q of [P, E]) {
-        const cid = q.cid;
+        const cid = q.cid, mh = CHARS[cid].maxHp || 10000;
         Object.assign(q, {
-          hp: 1e4, rhp: 1e4, s: 'i', t: 0, dnMax: 50, supCd: 0, y: 0, vy: 0, vx: 0, cmb: 0, fb: 0, cr: 0, airUsed: 0, n: '',
+          hp: mh, rhp: mh, maxHp: mh, s: 'i', t: 0, dnMax: 50, supCd: 0, y: 0, vy: 0, vx: 0, cmb: 0, fb: 0, cr: 0, airUsed: 0, n: '',
           stock: (cid === 2 ? (TRN.infStock ? 4 : 1) : 0),
-          thWin: 0, thTarget: null, chaosQ: 0, chaosT: 0, chaosIdx: 0, popT: 0, cd: 0, dn: 0, cs: 0, twT: 0, spinHits: 0, spinKd: 0, spinStun: 0, pend: []
+          thWin: 0, thTarget: null, chaosQ: 0, chaosT: 0, chaosIdx: 0, popT: 0, cd: 0, dn: 0, cs: 0, twT: 0, spinHits: 0, spinKd: 0, spinStun: 0, exGlow: 0,
+          armLeft: 0, armFlash: 0, cmdBonus: 0, dirHist: [], shunSeq: [], pend: []
         });
         if (TRN.gaugeMode >= 1) q.g = 4;
         else q.g = 0;
@@ -2018,8 +2083,8 @@
       const bothNeutral = (P.s === 'i' && E.s === 'i' && P.y === 0 && E.y === 0 && fbs.length === 0 && P.thWin === 0 && E.thWin === 0);
       if (bothNeutral) {
         if (TRN.autoHp) {
-          if (P.hp < 1e4) P.hp = Math.min(1e4, P.hp + 400);
-          if (E.hp < 1e4) E.hp = Math.min(1e4, E.hp + 400);
+          if (P.hp < P.maxHp) P.hp = Math.min(P.maxHp, P.hp + 400);
+          if (E.hp < E.maxHp) E.hp = Math.min(E.maxHp, E.hp + 400);
         }
         if (TRN.gaugeMode === 1) {
           if (P.g < 4) P.g = Math.min(4, P.g + .15);
@@ -2028,9 +2093,17 @@
       }
     }
 
-    function go(p, m) {
-      p.s = 'atk'; p.m = m; p.fr = 0; p.hit = 0; p.n = m.n; p.mid = ++SID;
+    function go(p, m, isCmd) {
+      p.s = 'atk'; p.m = m; p.fr = 0; p.hit = 0; p.n = isCmd ? (m.n + '★') : m.n; p.mid = ++SID;
       p.pend = [];   // 技を出したら、溜めていた先行入力は消費済み
+      p.armLeft = m.armor || (m.gb ? TUNE.gbArmorHits : 0);
+      p.cmdBonus = isCmd ? 1 : 0;
+      if (isCmd) {
+        p.dirHist = [];
+        p.shunSeq = [];
+        pop(p, 'COMMAND! (+20%)');
+        if (!m.k || !m.k.startsWith('X')) se('ex');
+      }
       if (m.k && m.k.startsWith('X')) { p.exGlow = Math.max(20, m.s + (m.a || 6)); addSpark(p.x, G + p.y - 45, '#6fe3ff'); se('ex'); }
       if (m.hop) { p.y = TUNE.hopStartY; p.vy = TUNE.hopVy }
     }
@@ -2062,7 +2135,7 @@
 
     function executeThrowAnim(atk, def, m, dir) {
       const thType = m.thType || 'slam';
-      const dur = thType === 'suplex' ? TUNE.throwAnimSuplex : thType === 'drain' ? TUNE.throwAnimDrain : TUNE.throwAnimSlam;
+      const dur = thType === 'shun' ? TUNE.throwAnimShun : thType === 'suplex' ? TUNE.throwAnimSuplex : thType === 'drain' ? TUNE.throwAnimDrain : TUNE.throwAnimSlam;
       atk.s = 'thAtk'; atk.fr = 0; atk.thDur = dur; atk.thType = thType; atk.thM = m; atk.thDir = dir; atk.thTarget = def;
       atk.n = m.n; atk.y = 0; atk.vy = 0; atk.vx = 0;
       def.s = 'thDef'; def.fr = 0; def.thDur = dur; def.thType = thType; def.thM = m; def.thDir = dir; def.thBy = atk; def.thWin = 0;
@@ -2215,6 +2288,98 @@
           } else {
             lF = [50, 0]; lB = [-20, 25];
             aF = [42 + 24 * q, 62 + 22 * q]; aB = [140, 160]; ln = 8 * q; extF = reachPx * 0.7;
+          }
+        } else if (m.k === 'JDK') {
+          hh = 36;
+          if (isWindup) {
+            lF = [85 * wup, -10]; lB = [-40, -70]; aF = [135, 160]; aB = [-40, 20]; ln = -8 * wup;
+          } else {
+            lF = [52 * q, 48 * q]; lB = [-65 * q, -95 * q];
+            aF = [-35 * q, -10 * q]; aB = [130 * q, 155 * q]; ln = -12 * q; extK = 22 * q;
+          }
+        } else if (m.spinKick) {
+          hh = 38 - 8 * q;
+          const spAng = dsin(p.fr * 1.15) * (isWindup ? 0.25 * wup : q);
+          ln = spAng * 5;
+          lF = [76 * spAng + 22 * (1 - q), 70 * spAng + 8 * (1 - q)];
+          lB = [-76 * spAng - 22 * (1 - q), -70 * spAng - 8 * (1 - q)];
+          aF = [40, 130]; aB = [-40 * q + 20 * (1 - q), -130 * q + 110 * (1 - q)];
+          extK = reachPx * 0.85 * Math.abs(spAng);
+          extB = reachPx * 0.75 * Math.abs(spAng);
+        } else if (m.spinDoubleKick) {
+          // 回転しながら前進して2連廻し蹴り（NK）
+          const h2s = m.hit2 ? m.hit2.s : 16, h2e = h2s + (m.hit2 ? m.hit2.a : 3);
+          if (k < t0) {
+            ln = -10 * wup; lF = [-45 * wup, -95 * wup]; lB = [-20, -10];
+            aF = [85, 135]; aB = [-45, 70];
+          } else if (k < h2s - 3) {
+            // 1発目の回転廻し蹴り
+            const q1 = k < t1 ? 1 : Math.max(0.25, 1 - (k - t1) / Math.max(1, (h2s - 3) - t1));
+            const tw = dsin((k - t0) * 0.85);
+            ln = -9 * q1;
+            lF = [92 * q1, 98 * q1];
+            lB = [-34 * q1, -18];
+            aF = [-45 * tw, 95]; aB = [60 * tw, 130];
+            extK = reachPx * 0.9 * q1;
+          } else if (k < h2s) {
+            // 2発目への回転タメ
+            const w2 = (k - (h2s - 3)) / 3;
+            ln = 6 * w2;
+            lF = [-55 * w2, -105 * w2];
+            lB = [32, 12];
+            aF = [-60, 80]; aB = [80, 135];
+          } else {
+            // 2発目の回転廻し蹴り（より大きく振り抜く）
+            const q2 = k < h2e ? 1 : Math.max(0, 1 - (k - h2e) / Math.max(1, m.t - h2e));
+            ln = -12 * q2;
+            lF = [104 * q2, 112 * q2];
+            lB = [-42 * q2, -22 * q2];
+            aF = [-70 * q2, 60]; aB = [90 * q2, 145];
+            extK = ((m.hit2 ? m.hit2.r : m.r) * CW * 0.5) * q2;
+          }
+        } else if (m.highAntiAirKick) {
+          // 足を大きく上へ蹴り上げる対空技（BK）
+          if (isWindup) {
+            hh = 38 - 6 * wup; ln = -10 * wup;
+            lF = [-35 * wup, -85 * wup]; lB = [-16, -6];
+            aF = [40, 115]; aB = [-30, 75];
+          } else {
+            hh = 36; ln = -14 * q;
+            lF = [148 * q, 162 * q];
+            lB = [-14, -8];
+            aF = [-35 * q, 65]; aB = [70 * q, 135];
+            extK = 24 * q;
+          }
+        } else if (m.doublePunch) {
+          // 最大コンボ用2連正拳突き（BP・金剛灼火イメージ）
+          const h2s = m.hit2 ? m.hit2.s : 24, h2e = h2s + (m.hit2 ? m.hit2.a : 4);
+          if (k < t0) {
+            // 1発目の深い構え（腰を落とし拳を引く）
+            hh = 38 - 5 * wup; ln = -15 * wup;
+            lF = [38, 12]; lB = [-38, -14];
+            aF = [-72 * wup, 145]; aB = [65, 135];
+          } else if (k < h2s - 4) {
+            // 1発目の正拳突き（前腕を真っ直ぐ突き抜く）
+            const q1 = k < t1 ? 1 : Math.max(0.2, 1 - (k - t1) / Math.max(1, (h2s - 4) - t1));
+            hh = 34; ln = 10 * q1;
+            lF = [46, 8]; lB = [-42, -16];
+            aF = [88 * q1, 90 * q1];
+            aB = [-55 * q1, 135];
+            extF = reachPx * 0.9 * q1;
+          } else if (k < h2s) {
+            // 2発目の引き＆踏み込み
+            const w2 = (k - (h2s - 4)) / 4;
+            hh = 32; ln = -8 * w2;
+            lF = [48, 6]; lB = [-46, -18];
+            aF = [-68 * w2, 145]; aB = [72, 135];
+          } else {
+            // 2発目の渾身の正拳突き
+            const q2 = k < h2e ? 1 : Math.max(0, 1 - (k - h2e) / Math.max(1, m.t - h2e));
+            hh = 33; ln = 14 * q2;
+            lF = [54 * q2 + 22 * (1 - q2), 6]; lB = [-48 * q2 - 22 * (1 - q2), -18];
+            aF = [90 * q2 + 40 * (1 - q2), 90 * q2 + 120 * (1 - q2)];
+            aB = [-65 * q2 + 20 * (1 - q2), 140];
+            extF = ((m.hit2 ? m.hit2.r : m.r) * CW * 0.55) * q2;
           }
         } else if (m.k === 'JK') {
           hh = 38;
@@ -2498,8 +2663,20 @@
           const y2 = Math.max(po.footF.y, po.footB.y) + HB.airKickMargin;
           return [{ x1: Math.min(xFront, xBack), y1, x2: Math.max(xFront, xBack), y2, kind: 'strike' }];
         }
+        if (m.k === 'JDK') {
+          const x0 = po.hip.x;
+          return [{ x1: Math.min(x0, xFront), y1: po.footF.y - 16, x2: Math.max(x0, xFront), y2: po.footF.y + 18, kind: 'strike' }];
+        }
         const x0 = po.shoulder.x;
         return [{ x1: Math.min(x0, xFront), y1: po.handF.y - HB.airPunchHalf, x2: Math.max(x0, xFront), y2: po.handF.y + HB.airPunchHalf, kind: 'strike' }];
+      }
+      if (m.spinKick) {  // 旋風脚：攻撃判定を低めに設定（しゃがみにも当たりやすく足元の回転蹴りに合わせる）
+        const x0 = p.x - p.f * 14;
+        return [{ x1: Math.min(x0, xFront), y1: y - 40, x2: Math.max(x0, xFront), y2: y - 6, kind: 'strike' }];
+      }
+      if (m.highAntiAirKick) {  // 昇天脚(対空)：足を大きく上へ蹴り上げる対空判定
+        const x0 = p.x - p.f * 8;
+        return [{ x1: Math.min(x0, xFront), y1: y - 126, x2: Math.max(x0, xFront), y2: y - 50, kind: 'strike' }];
       }
       if (m.antiAir) {   // 対空パンチ：体の前〜頭上に判定（HB.antiAir*）。リーチは r で伸縮
         const x0 = p.x - p.f * HB.antiAirBack;
@@ -2540,15 +2717,88 @@
     }
 
     function hasActiveZonerFb(p) {
-      if (p.cid !== 0) return false;
+      if (p.cid !== 0 && p.cid !== 3) return false;
       return fbs.some(b => b.o === p && !b.dead && FBS[b.kind] && FBS[b.kind].one && !FBS[b.kind].boom);
     }
     function lacksStock(p, m) {
       return !!(m && m.needStock && p.cid === 2 && p.stock <= 0);
     }
     function isZonerFbMove(p, m) {
-      if (!m || p.cid !== 0) return false;
-      return m.fb === 'z_norm' || m.fb === 'z_ex' || m.fb === 'z_mega' || m.fb === 'z_air' || m.fb === 'z_air_ex';
+      if (!m) return false;
+      if (p.cid === 0) return m.fb === 'z_norm' || m.fb === 'z_ex' || m.fb === 'z_mega' || m.fb === 'z_air' || m.fb === 'z_air_ex';
+      if (p.cid === 3) return m.fb === 'a_norm' || m.fb === 'a_flame' || m.fb === 'a_air';
+      return false;
+    }
+
+    // 試験実装：コマンド入力履歴の記録＆判定（hasCmd: 1 のキャラ専用）
+    function recordCmdHist(p, i) {
+      if (!CHARS[p.cid].hasCmd) return;
+      const lr = i.l && i.r;
+      const fw = lr ? 0 : (p.f > 0 ? i.r : i.l);
+      const bk = lr ? 0 : (p.f > 0 ? i.l : i.r);
+      let dir = 5;
+      if (i.d) dir = fw ? 3 : bk ? 1 : 2;
+      else if (i.u) dir = fw ? 9 : bk ? 7 : 8;
+      else dir = fw ? 6 : bk ? 4 : 5;
+      p.dirHist.push(dir);
+      if (p.dirHist.length > 24) p.dirHist.shift();
+
+      for (const e of p.shunSeq) e.t--;
+      p.shunSeq = p.shunSeq.filter(e => e.t > 0);
+      if (i.pr.P) p.shunSeq.push({ k: 'P', t: 28 });
+      if (fw && (!p.shunSeq.length || p.shunSeq[p.shunSeq.length - 1].k !== 'F')) {
+        p.shunSeq.push({ k: 'F', t: 28 });
+      }
+      if (i.pr.K) p.shunSeq.push({ k: 'K', t: 28 });
+    }
+    function hasDirSeq(hist, seq, win) {
+      const start = Math.max(0, hist.length - win);
+      let s = 0;
+      for (let idx = start; idx < hist.length; idx++) {
+        if (seq[s].includes(hist[idx])) {
+          s++;
+          if (s >= seq.length) return true;
+        }
+      }
+      return false;
+    }
+    function isCmdDP(p) { return hasDirSeq(p.dirHist, [[6], [2, 1], [3, 6]], 16); }
+    function isCmdQCF(p) { return hasDirSeq(p.dirHist, [[2], [6]], 14); }
+    function isCmdQCB(p) { return hasDirSeq(p.dirHist, [[2], [4]], 14); }
+    function isCmdDoubleQCF(p) { return hasDirSeq(p.dirHist, [[2], [6], [2], [6]], 24); }
+    function isCmdShun(p, i) {
+      if (!i.pr.K) return false;
+      const target = ['P', 'P', 'F', 'K'];
+      let s = 0;
+      for (const e of p.shunSeq) {
+        if (e.k === target[s]) { s++; if (s >= target.length) return true; }
+      }
+      return false;
+    }
+    // 地上コマンド必殺技（通常時・通常技キャンセル共通）
+    function tryCmdSpecial(p, i, allowEx) {
+      if (!CHARS[p.cid].hasCmd) return false;
+      const M = CHARS[p.cid].M;
+      // 超必殺コマンド（波動×2 + P/K/SP または P・P・→・K）
+      if (canSuper(p) && (isCmdShun(p, i) || (isCmdDoubleQCF(p) && (i.pr.P || i.pr.K || i.pr.S)))) {
+        p.y = 0; p.vy = 0; startSuper(p, 1); return true;
+      }
+      // EXコマンド
+      if (allowEx && i.pr.X && p.g >= 1) {
+        if (isCmdDP(p) && M.XF) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M.XF, 1); return true; }
+        if (isCmdQCF(p) && M.XN) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M.XN, 1); return true; }
+        if (isCmdQCB(p) && M.XB) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M.XB, 1); return true; }
+      }
+      // 通常コマンド必殺技
+      if (i.pr.P) {
+        if (isCmdDP(p) && M.FS) { p.y = 0; p.vy = 0; go(p, M.FS, 1); return true; }
+        if (isCmdQCF(p) && M.NS && !hasActiveZonerFb(p)) { p.y = 0; p.vy = 0; go(p, M.NS, 1); return true; }
+        if (isCmdQCB(p) && M.DS) { p.y = 0; p.vy = 0; go(p, M.DS, 1); return true; }
+      }
+      if (i.pr.K) {
+        if (isCmdQCB(p) && M.BS) { p.y = 0; p.vy = 0; go(p, M.BS, 1); return true; }
+      }
+      return false;
     }
 
     // 立ち状態('i')等に復帰した瞬間に、向き・レバー・ガード・しゃがみ状態を即時同期する
@@ -2607,9 +2857,20 @@
         return;
       }
       if (p.s === 'air' && !p.airUsed) {
+        if (i.pr.X && p.g >= 1 && M.XAS) {
+          const isCmd = !!(C0.hasCmd && isCmdQCF(p));
+          p.airUsed = 1; p.g -= 1; go(p, M.XAS, isCmd ? 1 : 0); return;
+        }
+        if (i.pr.S && M.AS && !hasActiveZonerFb(p)) { p.airUsed = 1; go(p, M.AS, 0); return }
+        if (C0.hasCmd && i.pr.P && M.AS && isCmdQCF(p) && !hasActiveZonerFb(p)) { p.airUsed = 1; go(p, M.AS, 1); return }
+        if (i.d && i.pr.K && M.JDK) { p.airUsed = 1; go(p, M.JDK); return }
         if (i.pr.P && M.JP) { p.airUsed = 1; go(p, M.JP); return }
         if (i.pr.K && M.JK) { p.airUsed = 1; go(p, M.JK); return }
         return;
+      }
+      // 滅殺・天衝コマンド（P・P・→・K）は空振りパンチからも発動可能にする
+      if (C0.hasCmd && canSuper(p) && (p.s === 'i' || (p.s === 'atk' && p.m !== M.SUP && !p.m.air && p.fr <= 18)) && isCmdShun(p, i)) {
+        p.y = 0; p.vy = 0; startSuper(p, 1); return;
       }
       // ★【調整】キャンセル：投げ技(th)は「キャンセルで出す」ことも「キャンセルする」こともできない。
       //   （小技→必殺技のキャンセルが投げに化ける事故の防止。投げは何も出していない状態から出す）
@@ -2633,6 +2894,7 @@
         if (nxt && M[nxt] && !M[nxt].th) { go(p, M[nxt]); return }
       }
       if (p.s === 'atk' && p.hit && !p.m.th && (p.m.c || p.m.exC) && !p.m.air) {
+        if (C0.hasCmd && p.m.c && tryCmdSpecial(p, i, EX_CANCEL_KEYS.has(p.m.k))) return;
         if (i.pr.SUP && canSuper(p)) {
           if (p.cid === 2 && p.m === M.NSM && !p.hit && p.stock > 0) { p.stock--; spawnFb(p, 's_boom_chg'); }
           p.y = 0; p.vy = 0; startSuper(p); return;
@@ -2669,6 +2931,7 @@
       if (i.pr.SUP && canSuper(p)) { startSuper(p); return }
       if (i.pr.T) { go(p, M.T); return }
       if (fw && i.pr.SYS && p.g >= .25) { p.g -= .25; go(p, M.GB); return }
+      if (C0.hasCmd && tryCmdSpecial(p, i, true)) return;
       if (i.pr.X && (p.g >= 1 || (!NET.active && !LOCAL_VS.active && p === E && TRN.rev === 2))) {
         const m = M['X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N')];
         if (m) {
@@ -2683,7 +2946,7 @@
         const dir = i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N';
         const key = dir + b;
         if (key === C0.chKey) {
-          if (p.cid === 0 && hasActiveZonerFb(p)) return;
+          if ((p.cid === 0 || p.cid === 3) && hasActiveZonerFb(p)) return;
           p.s = 'ch'; p.cf = 0; p.fr = 0; p.m = M[key]; p.n = 'タメ中'; return;
         }
         if (p.cid === 2 && key === 'FS') {
@@ -2704,11 +2967,11 @@
       }
     }
 
-    function startSuper(p) {
+    function startSuper(p, isCmd) {
       const C0 = CHARS[p.cid];
       p.g = 0;
       p.supCd = SUP_CD_MAX;
-      cutT = 30; cutTxt = C0.name + '：' + C0.superName + '！'; cutCol = C0.col; cutSide = (p === P ? 1 : 2);
+      cutT = 30; cutTxt = C0.name + '：' + C0.superName + (isCmd ? '★！' : '！'); cutCol = C0.col; cutSide = (p === P ? 1 : 2);
       se('sup');
       // カオス・ジェネレーターは「発動した瞬間」に効果を確定させ、ブーメランも確実に展開できるようにする
       if (C0.M.SUP.chaos) {
@@ -2716,7 +2979,7 @@
         if (p.stock < 1) p.stock = 1;
         spawnFb(p, 's_boom');
       }
-      go(p, C0.M.SUP);
+      go(p, C0.M.SUP, isCmd);
     }
 
     function spawnFb(p, kind) {
@@ -2725,7 +2988,7 @@
       const sx = p.x + p.f * TUNE.fbSpawnX, sy = d.vy ? (p.y - TUNE.fbSpawnYAirType) : (p.y - TUNE.fbSpawnY);
       const f = {
         o: p, kind, x: sx, y: sy, px: sx, py: sy,
-        vx: p.f * d.spd, vy: d.vy || 0, dir: p.f, life: 0, ret: 0, hits: 0, wait: 0
+        vx: p.f * d.spd, vy: d.vy || 0, dir: p.f, life: 0, ret: 0, hits: 0, wait: 0, cmdBonus: p.cmdBonus ? 1 : 0
       };
       fbs.push(f);
       if (d.one && !d.boom) p.fb = 1;
@@ -2760,9 +3023,11 @@
       if (p.popT > 0) p.popT--;
       if (p.supCd > 0) p.supCd--;
       if (p.exGlow > 0) p.exGlow--;
+      if (p.armFlash > 0) p.armFlash--;
       if (p.twT > 0 && --p.twT === 0 && p.s === 'atk') spawnFb(p, p.twK);
 
       syncGuardState(p, o, i);
+      recordCmdHist(p, i);
       p.w = 0;
       const bk = p.f > 0 ? p.inL : p.inR;
 
@@ -2825,7 +3090,16 @@
           const def = p.thTarget, dir = p.thDir, m = p.thM;
           const u = Math.min(1, p.fr / Math.max(1, p.thDur));
           if (def && def.s === 'thDef') {
-            if (p.thType === 'suplex') {
+            if (p.thType === 'shun') {
+              def.x = p.x + dir * 32;
+              def.y = 0;
+              if (p.fr >= 8 && p.fr <= 44 && p.fr % 4 === 0) {
+                const ox = ((p.fr * 19) % 36) - 18, oy = ((p.fr * 23) % 44) - 62;
+                addSpark(def.x + ox, G + oy, p.fr % 8 === 0 ? '#ff4d4d' : '#ffd34d');
+                se('shun');
+                SHK = Math.max(SHK, 5);
+              }
+            } else if (p.thType === 'suplex') {
               def.x = p.x + dir * (26 - 66 * u);
               def.y = -dsin(u * Math.PI) * 78;
             } else if (p.thType === 'drain') {
@@ -2840,7 +3114,7 @@
           if (p.fr >= p.thDur) {
             if (def) {
               def.y = 0;
-              const dmg = Math.round(m.d * (def.pun ? TUNE.counterDmgMul : 1));   // パニッシュ中の投げはダメージ増加
+              const dmg = Math.round(m.d * (def.pun ? TUNE.counterDmgMul : 1) * (p.cmdBonus ? TUNE.cmdDmgMul : 1));   // パニッシュ・コマンド入力でダメージ増加
               def.hp -= dmg;
               def.g = Math.min(4, def.g + dmg / TUNE.gaugePerDamage);
               def.cd = dmg; def.dn = 1; def.cs = 90;   // ダメージ表示（「1技コンボ / N ダメージ（パニッシュ）」）
@@ -2884,7 +3158,15 @@
         case 'atk': {
           const m = p.m; p.fr++;
           if (m.air) {
-            p.x += p.vx; p.vy += TUNE.jumpGravity; p.y += p.vy;
+            if (m.dive && p.fr >= m.s) {
+              p.vx = p.f * TUNE.diveVx;
+              p.vy = TUNE.diveVy;
+              p.x += p.vx; p.y += p.vy;
+            } else if (m.fb) {
+              p.x += p.vx * 0.35; p.vy = p.vy * 0.65 + TUNE.jumpGravity * 0.45; p.y += p.vy;
+            } else {
+              p.x += p.vx; p.vy += TUNE.jumpGravity; p.y += p.vy;
+            }
             if (p.y >= 0) { p.y = 0; p.vy = 0; p.vx = 0; p.airUsed = 0; p.s = 'i'; syncGuardState(p, o, i); break }
           }
           if (m.mv) {
@@ -2895,6 +3177,16 @@
                 const stopGap = CW + 4;
                 if (distToO > stopGap) {
                   p.x += Math.min(m.mv, distToO - stopGap) * p.f;
+                }
+              }
+            } else if (m.mvEnd) {
+              if (p.fr <= m.mvEnd) {
+                const distToO = (o.x - p.x) * p.f;
+                const stopGap = CW + 2;
+                if (m.mv > 0 && distToO > stopGap) {
+                  p.x += Math.min(m.mv, distToO - stopGap) * p.f;
+                } else if (m.mv < 0) {
+                  p.x += m.mv * p.f;
                 }
               }
             } else {
@@ -2978,8 +3270,10 @@
     function stepCombat(p, o) {
       if (p.s !== 'atk' || !p.m) return;
       const m = p.m;
-      if (m.d !== undefined && p.fr >= m.s && p.fr < m.s + m.a && !p.hit) {
-        tryHit(p, o, m);
+      if (m.d !== undefined && p.fr >= m.s && p.fr < m.s + m.a && !(p.hit & 1)) {
+        tryHit(p, o, m, 0);
+      } else if (m.hit2 && p.fr >= m.hit2.s && p.fr < m.hit2.s + m.hit2.a && !(p.hit & 2)) {
+        tryHit(p, o, Object.assign({}, m, m.hit2, { lightPush: 0 }), 1);
       }
     }
 
@@ -3025,11 +3319,13 @@
     // ★【調整】パニッシュ：相手が技の「後隙」（持続が終わった後）の間に当てると成立。ダメージ ×TUNE.counterDmgMul。
     //   通常攻撃(hit)・投げ(tryHit/executeThrowAnim)の両方でこの判定を使う。
     function isPunishable(o) {
-      return (o.s === 'atk' && o.fr >= o.m.s + (o.m.a || 0)) || (!NET.active && !LOCAL_VS.active && o === E && TRN.counter === 1);
+      const endAct = o.m ? (o.m.hit2 ? (o.m.hit2.s + o.m.hit2.a) : (o.m.s + (o.m.a || 0))) : 0;
+      return (o.s === 'atk' && o.fr >= endAct) || (!NET.active && !LOCAL_VS.active && o === E && TRN.counter === 1);
     }
 
-    function tryHit(p, o, m) {
+    function tryHit(p, o, m, hitIdx = 0) {
       if (isInv(o, 0)) return;
+      if (!m.th && o.s === 'atk' && o.m.strikeInv && o.fr <= o.m.strikeInv) return;
       if (o.s === 'atk' && o.m.aaInv && o.fr <= o.m.aaInv && (p.y < 0 || p.s === 'air')) return;
 
       const hBoxes = getHitboxes(p, m);
@@ -3040,7 +3336,8 @@
       }
 
       if (m.th) {
-        if (o.y < 0 || o.s === 'js' || o.s === 'air' || o.s === 'bs' || o.s === 'dn' || o.s === 'hs') return;   // ヒット硬直(hs)中は投げ不可
+        const isShun = m.thType === 'shun';
+        if (o.y < 0 || o.s === 'js' || o.s === 'air' || o.s === 'dn' || o.s === 'hs' || (!isShun && o.s === 'bs')) return;   // ヒット硬直(hs)中は投げ不可（滅殺・天衝はガード中も掴める）
         const hitThrow = hBoxes.some(hb => dBoxes.some(db => rectsOverlap(hb, db)));
         if (!hitThrow) return;
         p.hit = 1;
@@ -3078,9 +3375,10 @@
       }
 
       if (o.y < 0 && m.h === 'l') return;
-      p.hit = 1;
+      p.hit |= (1 << hitIdx);
       addSpark((overlapped.hb.x1 + overlapped.hb.x2) * .5, (overlapped.hb.y1 + overlapped.hb.y2) * .5, '#ffe250');
-      hit(p, o, m, m.t - p.fr);
+      const hm = hitIdx > 0 ? Object.assign({}, m, { sid: p.mid * 4 + hitIdx }) : m;
+      hit(p, o, hm, m.t - p.fr);
     }
 
     function hit(p, o, m, rem, fbSpec, hitDir) {
@@ -3107,10 +3405,32 @@
           // 近距離でシャドウスライドをガードさせた場合：瞬間移動(ワープ)はせず、そのまま滑って相手の体を通り抜ける。
           // （通り抜けは「押し合い無効」(pCross/eCross)で実現。向きも技の最中は反転させない。技の後は自動で相手を向く）
         } else {
-          o.x += dir * TUNE.blockPushDef;
-          if (p.s === 'atk' && !m.noPush && !m.air) p.x -= p.f * TUNE.blockPushAtk;
+          o.x += dir * (m.lightPush ? 5 : TUNE.blockPushDef);
+          if (p.s === 'atk' && !m.noPush && !m.lightPush && !m.air) p.x -= p.f * TUNE.blockPushAtk;
         }
         se('blk');
+        return;
+      }
+
+      const isCmdHit = fbSpec ? !!m.cmdBonus : !!p.cmdBonus;
+      const cmdMul = isCmdHit ? TUNE.cmdDmgMul : 1;
+
+      // ★スーパーアーマー判定（GB発動3F〜発生直前まで2発耐える。ダメージはそのまま入る／GB・超必殺・投げはアーマー貫通）
+      const hasArmor = o.s === 'atk' && o.m && o.armLeft > 0 && o.fr >= (o.m.armorStart || TUNE.gbArmorStart) && o.fr < o.m.s;
+      if (hasArmor && !m.gb && m.k !== 'SUP' && !(fbSpec && fbSpec.beam)) {
+        const dmArm = Math.round(m.d * cmdMul);
+        o.armLeft--;
+        o.armFlash = 10;
+        o.hp -= dmArm;
+        o.g = Math.min(4, o.g + dmArm / TUNE.gaugePerDamage);
+        if (!NET.active && !LOCAL_VS.active && o === E) {
+          TRN.lastDmg = dmArm;
+          TRN.lastScale = 100;
+        }
+        pop(o, 'ARMOR!');
+        se('arm');
+        HS = Math.max(HS, 5);
+        SHK = Math.max(SHK, 3);
         return;
       }
 
@@ -3125,7 +3445,7 @@
       const COMBO_LAST = TUNE.comboScale.length - 1;   // 配列の最後の段で強制ダウン
       let scale = TUNE.comboScale[Math.min(n, COMBO_LAST)];
       if ((m.k === 'SUP' || (fbSpec && fbSpec.beam)) && scale < TUNE.superMinScale && n < COMBO_LAST) scale = TUNE.superMinScale;
-      const dm = Math.round(m.d * scale * (o.pun ? TUNE.counterDmgMul : 1));
+      const dm = Math.round(m.d * scale * (o.pun ? TUNE.counterDmgMul : 1) * cmdMul);
       o.cd += dm; o.dn = o.cmb; o.cs = 90;
       if (o.pun && n === 0) pnT = 70;
 
@@ -3141,24 +3461,25 @@
       const heavyHit = dm >= TUNE.heavyDmg || m.kd;
       se(heavyHit ? 'heavy' : 'hit'); HS = Math.max(HS, heavyHit ? TUNE.hitstopHeavy : TUNE.hitstopLight); if (heavyHit) SHK = TUNE.shakeHeavy;
 
-      if (wasAir && n < COMBO_LAST && (o.s !== 'spin' || o.spinHits < (o.pun ? TUNE.spinPunishMaxJuggle : TUNE.spinMaxJuggle))) {
-        // ★空中ヒット：ダウンさせず、きりもみ回転で打ち上げて追撃可能にする（TUNE.spin*）
+      const forceSpin = !!m.spinLaunch;
+      if ((wasAir || forceSpin) && n < COMBO_LAST && (o.s !== 'spin' || o.spinHits < (o.pun ? TUNE.spinPunishMaxJuggle : TUNE.spinMaxJuggle))) {
+        // ★空中ヒット／旋風脚(spinLaunch)：きりもみ回転で打ち上げて追撃可能にする
         const again = o.s === 'spin';                 // すでにきりもみ中＝追撃ヒット
         o.spinHits = again ? o.spinHits + 1 : 0;
-        const bigPunish = o.pun && !again;            // 空中パニッシュ（初段）は大きく吹き飛ばす
+        const bigPunish = o.pun && !again && !forceSpin;  // 空中パニッシュ（初段）は大きく吹き飛ばす
         let vx, vy;
-        if (bigPunish) { vx = dir * TUNE.spinPunishVx; vy = TUNE.spinPunishVy }
+        if (forceSpin) {
+          vx = dir * (m.spinVx !== undefined ? m.spinVx : 0.85);
+          vy = m.spinVy !== undefined ? m.spinVy : -6.8;
+          if (o.y >= 0) o.y = -2;
+        } else if (bigPunish) { vx = dir * TUNE.spinPunishVx; vy = TUNE.spinPunishVy }
         else if (again) {
           let k = 1; for (let h = 1; h < o.spinHits; h++) k *= TUNE.spinJuggleDecay;   // 追撃を重ねるほど再打ち上げが弱まる
           vx = dir * (m.pushFar ? TUNE.spinPushVxFar : TUNE.spinPushVx); vy = (o.pun ? TUNE.spinPunishJuggleVy : TUNE.spinJuggleVy) * k;
         } else { vx = dir * (m.pushFar ? TUNE.spinPushVxFar : TUNE.spinPushVx); vy = TUNE.spinLaunchVy }
         o.s = 'spin'; o.fr = 0; o.t = 0; o.vx = vx; o.vy = vy;
-        // ★通常ヒット(パニッシュ以外)は「地上でヒットした時と同じ時間」で復帰：
-        //   ・kd付きの技 → 着地後のダウン時間は地上ヒットと同じ
-        //   ・kdなしの技 → 着地した時点で、地上ヒットの硬直(rem+v)の残りだけ動けない
-        //   空中パニッシュ(およびその後の追撃)は従来どおり、着地でダウンする。
-        o.spinKd = o.pun ? (m.kd || TUNE.kdDefaultFrames) : (m.kd || 0);
-        o.spinStun = o.pun ? 0 : Math.max(2, rem + m.v);
+        o.spinKd = (o.pun || forceSpin) ? (m.kd || TUNE.kdDefaultFrames) : (m.kd || 0);
+        o.spinStun = (o.pun || forceSpin) ? 0 : Math.max(2, rem + m.v);
         o.wakeupBuf = null;
         if (bigPunish) { HS = Math.max(HS, TUNE.spinPunishHitstop); SHK = Math.max(SHK, TUNE.spinPunishShake); pop(o, 'AIR PUNISH!') }
       } else if (m.kd || n >= COMBO_LAST || wasAir) {
@@ -3168,7 +3489,7 @@
       } else {
         o.y = 0; o.vy = 0; o.vx = 0;
         o.s = 'hs'; o.t = Math.max(2, rem + m.v + (o.pun && n === 0 ? TUNE.counterStunBonus : 0));
-        o.x += dir * (m.pushFar ? TUNE.hitPushFar : TUNE.hitPush);
+        o.x += dir * (m.lightPush ? 4 : (m.pushFar ? TUNE.hitPushFar : TUNE.hitPush));
       }
     }
 
@@ -3250,7 +3571,8 @@
         let pool = [];
         if (c.cid === 0) pool = d > 250 ? ['w', 'NS', 'NS', 'b', 'x'] : d > 130 ? ['w', 'NK', 'FK', 'NS', 'FS', 'b'] : ['DP', 'NP', 'NK', 'BS', 'T', 'c', 'b', 'DK', 'FP'];
         else if (c.cid === 1) pool = d > 220 ? ['w', 'w', 'BS', 'NS', 'b'] : d > 110 ? ['w', 'FK', 'NS', 'FS', 'b'] : ['DP', 'NP', 'DS', 'T', 'FP', 'DK', 'c', 'b'];
-        else pool = d > 220 ? ['NS', 'FS', 'BS', 'w', 'b'] : d > 120 ? ['FS', 'NK', 'FK', 'BS', 'b'] : ['DP', 'DS', 'T', 'FP', 'DK', 'BP', 'c', 'b'];
+        else if (c.cid === 2) pool = d > 220 ? ['NS', 'FS', 'BS', 'w', 'b'] : d > 120 ? ['FS', 'NK', 'FK', 'BS', 'b'] : ['DP', 'DS', 'T', 'FP', 'DK', 'BP', 'c', 'b'];
+        else pool = d > 230 ? ['NS', 'BS', 'DS', 'w', 'b'] : d > 120 ? ['w', 'FK', 'NS', 'DS', 'FS', 'BS', 'b'] : ['DP', 'NP', 'FP', 'DK', 'DS', 'FS', 'T', 'c', 'b'];
         if (c.g >= 1 && Math.random() < .2) pool.push('XF', 'XB');
         if (c.g >= .25 && d < 110 && Math.random() < .15) pool.push('GB');
         if (canSuper(c) && Math.random() < .25) pool.push('SUP');
@@ -3451,7 +3773,11 @@
 
         if (!d.beam && b.y >= 0) { if (d.one && !d.boom) b.o.fb = 0; return 0 }
 
-        const dBoxes = getHurtboxes(o);
+        let dBoxes = getHurtboxes(o);
+        // 下半身の弾無敵（旋風脚など）：足(legF/legB)への飛び道具ヒットを無効化
+        if (o.s === 'atk' && o.m && o.m.legProjInv && o.fr <= o.m.legProjInv) {
+          dBoxes = dBoxes.filter(db => !HB.legProjInvParts.includes(db.part));
+        }
         let fbHit = 0;
         if (d.beam) {
           const beamBox = {
@@ -3468,7 +3794,7 @@
         if (!b.hitLock && !isInv(o, 1) && fbHit) {
           b.o.hit = 1;
           addSpark(b.x, G + b.y, d.col);
-          hit(b.o, o, { d: d.d, h: d.h, g: d.g, v: d.v, kd: d.kd, k: d.beam ? 'SUP' : 'FB', sid: b.sid || (b.sid = ++SID) }, 0, d, b.dir);
+          hit(b.o, o, { d: d.d, h: d.h, g: d.g, v: d.v, kd: d.kd, k: d.beam ? 'SUP' : 'FB', sid: b.sid || (b.sid = ++SID), cmdBonus: b.cmdBonus ? 1 : 0 }, 0, d, b.dir);
           b.hits++;
           if (d.beam || d.boom) {
             b.hitLock = TUNE.boomHitLock;
@@ -3517,7 +3843,8 @@
           const isKo = (P.hp <= 0 || E.hp <= 0);
           if (isKo) koSlowT = 45;
           endType = isKo ? (P.hp <= 0 && E.hp <= 0 ? 'DOUBLE K.O.' : 'K.O.') : 'TIME UP';
-          const w = P.hp > E.hp ? 0 : E.hp > P.hp ? 1 : -1;
+          const pRat = P.hp / (P.maxHp || 1e4), eRat = E.hp / (E.maxHp || 1e4);
+          const w = pRat > eRat ? 0 : eRat > pRat ? 1 : -1;
           winSide = w;
           if (w >= 0) rw[w]++;
           const wChar = w === 0 ? CHARS[P.cid].name : w === 1 ? CHARS[E.cid].name : '';
@@ -3755,6 +4082,111 @@
       advanceGameFrame();
     }
 
+    /* =========================================================================
+       軽量パーツ分割スプライト（256x256px テクスチャアトラス / 3倍解像度）
+       assets/char0_zoner.webp(.png), char1_brawler, char2_trick を自動読込。
+       画像が無いキャラは従来の棒人間で自動描画されます。
+       ========================================================================= */
+    const SPRITE_SCALE = 3;
+    const SPRITE_ATLAS = {
+      head:    { x: 0,   y: 0,   w: 80, h: 80,  px: 40, py: 44 },
+      headAtk: { x: 84,  y: 0,   w: 80, h: 80,  px: 40, py: 44 },
+      headDmg: { x: 168, y: 0,   w: 80, h: 80,  px: 40, py: 44 },
+      torso:   { x: 0,   y: 84,  w: 72, h: 116, px: 36, py: 102, len: 90 },
+      armUp:   { x: 76,  y: 84,  w: 40, h: 72,  px: 20, py: 12,  len: 45 },
+      armLo:   { x: 120, y: 84,  w: 44, h: 76,  px: 22, py: 12,  len: 45 },
+      legUp:   { x: 168, y: 84,  w: 40, h: 84,  px: 20, py: 12,  len: 57 },
+      legLo:   { x: 212, y: 84,  w: 44, h: 84,  px: 18, py: 12,  len: 57 },
+      proj:    { x: 80,  y: 176, w: 72, h: 72,  px: 36, py: 36 },
+      projEx:  { x: 160, y: 176, w: 72, h: 72,  px: 36, py: 36 }
+    };
+    const CHAR_IMG_BASE = ['assets/char0_zoner', 'assets/char1_brawler', 'assets/char2_trick', 'assets/char3_shura'];
+    const SPRITES = [null, null, null, null];
+
+    function buildCharSprite(img) {
+      const mkTint = (fill) => {
+        const cv = document.createElement('canvas');
+        cv.width = 256; cv.height = 256;
+        const cx = cv.getContext('2d');
+        cx.drawImage(img, 0, 0, 256, 256);
+        if (fill) {
+          cx.globalCompositeOperation = 'source-atop';
+          cx.fillStyle = fill;
+          cx.fillRect(0, 0, 256, 256);
+          cx.globalCompositeOperation = 'source-over';
+        }
+        return cv;
+      };
+      const base = mkTint(null);
+      const dark = mkTint('rgba(0,0,0,0.28)');
+      const hit = mkTint('rgba(255,255,255,0.72)');
+      const gb = mkTint('rgba(255,122,69,0.65)');
+
+      const hasPixels = (cell) => {
+        try {
+          const data = base.getContext('2d').getImageData(cell.x, cell.y, cell.w, cell.h).data;
+          for (let i = 3; i < data.length; i += 4) if (data[i] > 16) return true;
+        } catch (e) { }
+        return false;
+      };
+      return {
+        base, dark, hit, gb,
+        hasHeadAtk: hasPixels(SPRITE_ATLAS.headAtk),
+        hasHeadDmg: hasPixels(SPRITE_ATLAS.headDmg),
+        hasProj: hasPixels(SPRITE_ATLAS.proj),
+        hasProjEx: hasPixels(SPRITE_ATLAS.projEx)
+      };
+    }
+
+    function loadCharSpriteUrl(cid, url, fallbackUrl) {
+      const img = new Image();
+      img.onload = () => { SPRITES[cid] = buildCharSprite(img); };
+      img.onerror = () => {
+        if (fallbackUrl) loadCharSpriteUrl(cid, fallbackUrl, null);
+      };
+      img.src = url;
+    }
+
+    function initCharSprites() {
+      if (location.protocol === 'file:') return;
+      for (let cid = 0; cid < CHAR_IMG_BASE.length; cid++) {
+        loadCharSpriteUrl(cid, CHAR_IMG_BASE[cid] + '.webp', CHAR_IMG_BASE[cid] + '.png');
+      }
+    }
+    initCharSprites();
+
+    function drawLimbSprite(img, cell, x1, y1, x2, y2) {
+      const dx = x2 - x1, dy = y2 - y1, dist = Math.hypot(dx, dy);
+      if (dist < 0.1) return;
+      X.save();
+      X.translate(x1, y1);
+      X.rotate(-Math.atan2(dx, dy));
+      X.scale(1 / SPRITE_SCALE, dist / cell.len);
+      X.drawImage(img, cell.x, cell.y, cell.w, cell.h, -cell.px, -cell.py, cell.w, cell.h);
+      X.restore();
+    }
+
+    function drawTorsoSprite(img, cell, hx, hy, sxp, syp) {
+      const dx = sxp - hx, dy = syp - hy, dist = Math.hypot(dx, dy);
+      if (dist < 0.1) return;
+      X.save();
+      X.translate(hx, hy);
+      X.rotate(Math.atan2(dx, -dy));
+      X.scale(1 / SPRITE_SCALE, dist / cell.len);
+      X.drawImage(img, cell.x, cell.y, cell.w, cell.h, -cell.px, -cell.py, cell.w, cell.h);
+      X.restore();
+    }
+
+    function drawHeadSprite(img, cell, hx, hy, tiltAng) {
+      const sc = 1 / SPRITE_SCALE;
+      X.save();
+      X.translate(hx, hy);
+      if (tiltAng) X.rotate(tiltAng);
+      X.scale(sc, sc);
+      X.drawImage(img, cell.x, cell.y, cell.w, cell.h, -cell.px, -cell.py, cell.w, cell.h);
+      X.restore();
+    }
+
     function lb(x, y, a, l, b, m) {
       const jx = x + Math.sin(R(a)) * l, jy = y + Math.cos(R(a)) * l;
       X.moveTo(x, y); X.lineTo(jx, jy); X.lineTo(jx + Math.sin(R(b)) * m, jy + Math.cos(R(b)) * m);
@@ -3767,34 +4199,75 @@
 
       X.save(); X.translate(p.x, y); X.scale(p.f, 1); X.lineCap = 'round'; X.lineJoin = 'round';
       X.fillStyle = 'rgba(0,0,0,.35)'; X.beginPath(); X.ellipse(0, -p.y, s === 'dn' && p.t > 15 ? 38 : 24, 5, 0, 0, 7); X.fill();
+      const sp = SPRITES[p.cid];
+      const armorActive = (p.s === 'atk' && p.m && p.armLeft > 0 && p.fr >= (p.m.armorStart || TUNE.gbArmorStart) && p.fr < p.m.s);
+      if (p.armFlash > 0 || armorActive) {
+        const isFl = p.armFlash > 0;
+        const grdA = X.createRadialGradient(0, -45, 6, 0, -45, isFl ? 60 : 48);
+        grdA.addColorStop(0, isFl ? 'rgba(255,255,255,0.58)' : 'rgba(255,211,77,0.34)');
+        grdA.addColorStop(0.65, isFl ? 'rgba(255,211,77,0.32)' : 'rgba(255,159,67,0.16)');
+        grdA.addColorStop(1, 'rgba(255,159,67,0)');
+        X.fillStyle = grdA;
+        X.beginPath(); X.arc(0, -45, isFl ? 60 : 48, 0, 7); X.fill();
+      }
+      if (p.s === 'atk' && p.m && (p.m.strikeInv || p.m.ghost)) {
+        X.globalAlpha = 0.48;
+      }
       if (p.exGlow > 0) {
         const ga = Math.min(1, p.exGlow / 12);
         const grd = X.createRadialGradient(0, -45, 6, 0, -45, 58);
-        grd.addColorStop(0, `rgba(255,235,120,${(0.45 * ga).toFixed(3)})`);
-        grd.addColorStop(0.55, `rgba(111,227,255,${(0.28 * ga).toFixed(3)})`);
+        grd.addColorStop(0, `rgba(255,235,120,${(0.48 * ga).toFixed(3)})`);
+        grd.addColorStop(0.55, `rgba(111,227,255,${(0.30 * ga).toFixed(3)})`);
         grd.addColorStop(1, 'rgba(111,227,255,0)');
         X.fillStyle = grd;
         X.beginPath(); X.arc(0, -45, 58, 0, 7); X.fill();
-        X.shadowColor = '#ffe250';
-        X.shadowBlur = 14 * ga;
+        if (!sp) {
+          X.shadowColor = '#ffe250';
+          X.shadowBlur = 14 * ga;
+        }
       }
       if (po.tilt) {
         X.translate(0, -piv);
         X.rotate(po.tilt);
         X.translate(0, piv);
       }
-      X.strokeStyle = s === 'hs' ? '#fff' : s === 'gb' ? '#ff7a45' : p.c;
-      X.fillStyle = X.strokeStyle; X.lineWidth = 7;
 
       const sx = po.ln, sy = po.sy, hy = po.hy;
-      X.beginPath(); X.moveTo(0, hy); X.lineTo(sx, sy);
-      lb(0, hy, po.lF[0], 19 + po.extK * .45, po.lF[1], 19 + po.extK * .55);
-      lb(0, hy, po.lB[0], 19 + po.extB * .45, po.lB[1], 19 + po.extB * .55);
-      X.stroke();
-      X.beginPath(); lb(sx, sy + 3, po.aB[0], 15, po.aB[1], 15); X.stroke();
-      X.beginPath(); lb(sx, sy + 3, po.aF[0], 15 + po.extF * .45, po.aF[1], 15 + po.extF * .55); X.stroke();
-      X.beginPath(); X.arc(sx * 1.2 + 2, sy - 12, 10, 0, 7); X.fill();
-      X.fillStyle = '#fff'; X.fillRect(sx * 1.2 + 6, sy - 15, 4, 4);
+      if (sp) {
+        const mainImg = s === 'hs' ? sp.hit : s === 'gb' ? sp.gb : sp.base;
+        const backImg = s === 'hs' ? sp.hit : s === 'gb' ? sp.gb : sp.dark;
+        const legB = limbPts(0, hy, po.lB[0], 19 + po.extB * .45, po.lB[1], 19 + po.extB * .55);
+        const legF = limbPts(0, hy, po.lF[0], 19 + po.extK * .45, po.lF[1], 19 + po.extK * .55);
+        const armB = limbPts(sx, sy + 3, po.aB[0], 15, po.aB[1], 15);
+        const armF = limbPts(sx, sy + 3, po.aF[0], 15 + po.extF * .45, po.aF[1], 15 + po.extF * .55);
+        const headCell = ((s === 'hs' || s === 'dn' || s === 'gb' || s === 'spin' || s === 'thDef') && sp.hasHeadDmg)
+          ? SPRITE_ATLAS.headDmg
+          : ((s === 'atk' || s === 'thAtk' || s === 'ch') && sp.hasHeadAtk)
+            ? SPRITE_ATLAS.headAtk
+            : SPRITE_ATLAS.head;
+
+        drawLimbSprite(backImg, SPRITE_ATLAS.armUp, sx, sy + 3, armB.j.x, armB.j.y);
+        drawLimbSprite(backImg, SPRITE_ATLAS.armLo, armB.j.x, armB.j.y, armB.e.x, armB.e.y);
+        drawLimbSprite(backImg, SPRITE_ATLAS.legUp, 0, hy, legB.j.x, legB.j.y);
+        drawLimbSprite(backImg, SPRITE_ATLAS.legLo, legB.j.x, legB.j.y, legB.e.x, legB.e.y);
+        drawTorsoSprite(mainImg, SPRITE_ATLAS.torso, 0, hy, sx, sy);
+        drawLimbSprite(mainImg, SPRITE_ATLAS.legUp, 0, hy, legF.j.x, legF.j.y);
+        drawLimbSprite(mainImg, SPRITE_ATLAS.legLo, legF.j.x, legF.j.y, legF.e.x, legF.e.y);
+        drawHeadSprite(mainImg, headCell, sx * 1.2 + 2, sy - 12, Math.atan2(sx, 30) * 0.35);
+        drawLimbSprite(mainImg, SPRITE_ATLAS.armUp, sx, sy + 3, armF.j.x, armF.j.y);
+        drawLimbSprite(mainImg, SPRITE_ATLAS.armLo, armF.j.x, armF.j.y, armF.e.x, armF.e.y);
+      } else {
+        X.strokeStyle = (s === 'hs' || p.armFlash > 0) ? '#fff' : s === 'gb' ? '#ff7a45' : p.c;
+        X.fillStyle = X.strokeStyle; X.lineWidth = 7;
+        X.beginPath(); X.moveTo(0, hy); X.lineTo(sx, sy);
+        lb(0, hy, po.lF[0], 19 + po.extK * .45, po.lF[1], 19 + po.extK * .55);
+        lb(0, hy, po.lB[0], 19 + po.extB * .45, po.lB[1], 19 + po.extB * .55);
+        X.stroke();
+        X.beginPath(); lb(sx, sy + 3, po.aB[0], 15, po.aB[1], 15); X.stroke();
+        X.beginPath(); lb(sx, sy + 3, po.aF[0], 15 + po.extF * .45, po.aF[1], 15 + po.extF * .55); X.stroke();
+        X.beginPath(); X.arc(sx * 1.2 + 2, sy - 12, 10, 0, 7); X.fill();
+        X.fillStyle = '#fff'; X.fillRect(sx * 1.2 + 6, sy - 15, 4, 4);
+      }
       if (s === 'bs') {
         X.strokeStyle = p.cr ? '#5ce1e6' : '#6fe3ff'; X.lineWidth = 3;
         X.beginPath(); X.arc(18, sy + 8, 34, -1.1, 1.1); X.stroke();
@@ -3876,6 +4349,7 @@
       const projInvOnly = !fullInv && isInv(p, 1);
       const aaInvOnly = !fullInv && p.s === 'atk' && p.m.aaInv && p.fr <= p.m.aaInv;
       const aaPartActive = p.s === 'atk' && p.m.aaPartInv && p.fr <= p.m.aaPartInv;   // 頭・腕だけ対空無敵
+      const legProjActive = p.s === 'atk' && p.m.legProjInv && p.fr <= p.m.legProjInv; // 下半身だけ弾無敵
 
       if (p.s !== 'dn' && p.s !== 'thAtk' && p.s !== 'thDef') {
         const pb = getPushbox(p);
@@ -3906,6 +4380,10 @@
           X.fillStyle = 'rgba(92,225,230,.16)';
           X.strokeStyle = '#5ce1e6';
           X.setLineDash([4, 2]);
+        } else if (legProjActive && HB.legProjInvParts.includes(b.part)) {
+          X.fillStyle = 'rgba(192,122,255,.16)';
+          X.strokeStyle = '#d49eff';
+          X.setLineDash([4, 2]);
         } else {
           X.setLineDash([]);
           if (b.part === 'head') {
@@ -3926,8 +4404,10 @@
       X.restore();
 
       const m = p.m;
-      if (p.s === 'atk' && m && m.d !== undefined && p.fr >= m.s && p.fr < m.s + m.a) {
-        const hBoxes = getHitboxes(p, m);
+      const inHit1 = p.s === 'atk' && m && m.d !== undefined && p.fr >= m.s && p.fr < m.s + m.a;
+      const inHit2 = p.s === 'atk' && m && m.hit2 && p.fr >= m.hit2.s && p.fr < m.hit2.s + m.hit2.a;
+      if (inHit1 || inHit2) {
+        const hBoxes = getHitboxes(p, inHit2 ? Object.assign({}, m, m.hit2) : m);
         X.save();
         for (const b of hBoxes) {
           const isTh = b.kind === 'throw';
@@ -4163,15 +4643,35 @@
             X.strokeRect(bx, G - 68, bw, 36);
           }
         } else if (d.boom) {
+          const sp = b.o ? SPRITES[b.o.cid] : null;
+          const isEx = b.kind.includes('ex') || b.kind.includes('chg');
+          const pCell = sp ? ((isEx && sp.hasProjEx) ? SPRITE_ATLAS.projEx : sp.hasProj ? SPRITE_ATLAS.proj : null) : null;
           X.save(); X.translate(b.x, G + b.y); X.rotate(FR * .28);
-          X.fillRect(-d.rad, -4, d.rad * 2, 8); X.fillRect(-4, -d.rad, 8, d.rad * 2);
+          if (pCell) {
+            const sc = (d.rad * 2.4) / pCell.w;
+            X.scale(sc, sc);
+            X.drawImage(sp.base, pCell.x, pCell.y, pCell.w, pCell.h, -pCell.px, -pCell.py, pCell.w, pCell.h);
+          } else {
+            X.fillRect(-d.rad, -4, d.rad * 2, 8); X.fillRect(-4, -d.rad, 8, d.rad * 2);
+          }
           X.restore();
           if (HB_VIS) {
             X.strokeStyle = '#ff415a'; X.lineWidth = 1.5;
             X.beginPath(); X.arc(b.x, G + b.y, d.rad, 0, 7); X.stroke();
           }
         } else {
-          X.beginPath(); X.arc(b.x, G + b.y, d.rad, 0, 7); X.fill();
+          const sp = b.o ? SPRITES[b.o.cid] : null;
+          const isEx = b.kind.includes('ex') || b.kind.includes('mega');
+          const pCell = sp ? ((isEx && sp.hasProjEx) ? SPRITE_ATLAS.projEx : sp.hasProj ? SPRITE_ATLAS.proj : null) : null;
+          if (pCell) {
+            X.save(); X.translate(b.x, G + b.y);
+            const sc = (d.rad * 2.6) / pCell.w;
+            X.scale((b.dir < 0 ? -1 : 1) * sc, sc);
+            X.drawImage(sp.base, pCell.x, pCell.y, pCell.w, pCell.h, -pCell.px, -pCell.py, pCell.w, pCell.h);
+            X.restore();
+          } else {
+            X.beginPath(); X.arc(b.x, G + b.y, d.rad, 0, 7); X.fill();
+          }
           if (HB_VIS) {
             X.strokeStyle = '#ff415a'; X.lineWidth = 1.5;
             X.beginPath(); X.arc(b.x, G + b.y, d.rad, 0, 7); X.stroke();
@@ -4189,14 +4689,15 @@
       X.restore(); // カメラズーム終了（ここからHUD・カットイン・カウントダウンを画面固定で描画）
 
       for (const [q, l] of [[P, 1], [E, 0]]) {
-        const x = l ? 12 : W / 2 + 28, w = W / 2 - 40, f = Math.max(0, q.hp / 1e4) * w;
-        const rf = Math.max(f, Math.min(w, Math.max(0, (q.rhp !== undefined ? q.rhp : q.hp) / 1e4) * w));
+        const mh = q.maxHp || 10000;
+        const x = l ? 12 : W / 2 + 28, w = W / 2 - 40, f = Math.max(0, q.hp / mh) * w;
+        const rf = Math.max(f, Math.min(w, Math.max(0, (q.rhp !== undefined ? q.rhp : q.hp) / mh) * w));
         X.fillStyle = '#2a2d3a'; X.fillRect(x, 12, w, 14);
         if (rf > f) {
           X.fillStyle = '#ff3b5c';
           X.fillRect(l ? x : x + w - rf, 12, rf, 14);
         }
-        X.fillStyle = q.hp < 3000 ? '#ff5d5d' : '#ffd34d';
+        X.fillStyle = q.hp < mh * 0.3 ? '#ff5d5d' : '#ffd34d';
         X.fillRect(l ? x : x + w - f, 12, f, 14);
 
         X.fillStyle = '#2a2d3a'; X.fillRect(x, 30, w, 7);
@@ -4257,6 +4758,34 @@
         X.textAlign = l ? 'left' : 'right';
         X.fillStyle = '#ffd34d'; X.font = 'bold 18px system-ui'; X.fillText(q.dn + '技コンボ', x, yOff);
         X.font = 'bold 14px system-ui'; X.fillText(q.cd + ' ダメージ' + (q.pun ? '（パニッシュ）' : ''), x, yOff + 20);
+      }
+
+      // 滅殺・天衝（超必殺コマンド投げ）暗転＆「滅」演出
+      const shunAtk = (P.s === 'thAtk' && P.thType === 'shun') ? P : (E.s === 'thAtk' && E.thType === 'shun') ? E : null;
+      if (shunAtk) {
+        X.save();
+        X.fillStyle = 'rgba(0,0,0,0.82)';
+        X.fillRect(0, 0, W, 360);
+        for (const spk of sparks) {
+          X.globalAlpha = spk.t / 12;
+          X.strokeStyle = spk.col; X.lineWidth = 4;
+          X.beginPath(); X.arc(spk.x, spk.y, (13 - spk.t) * 3.2, 0, 7); X.stroke();
+        }
+        X.globalAlpha = 1;
+        if (shunAtk.fr >= 42) {
+          const prog = Math.min(1, (shunAtk.fr - 42) / 10);
+          X.translate(W / 2, 185);
+          X.scale(1.6 - 0.5 * prog, 1.6 - 0.5 * prog);
+          X.font = '900 130px serif';
+          X.textAlign = 'center';
+          X.textBaseline = 'middle';
+          X.strokeStyle = '#ffd34d';
+          X.lineWidth = 6;
+          X.strokeText('滅', 0, 0);
+          X.fillStyle = '#ff2a3c';
+          X.fillText('滅', 0, 0);
+        }
+        X.restore();
       }
 
       if (cutT > 0) {
@@ -4729,7 +5258,7 @@
         ['5SP', `${c.M.NS.n}（最大タメ30Fで「${c.M[c.chTo].n}」）`],
         ['6SP / 2SP / 4SP', `${c.M.FS.n} / ${c.M.DS.n} / ${c.M.BS.n}`],
         ['EX（1本消費）', `${c.M.XN.n} / ${c.M.XF.n} / ${c.M.XD.n} / ${c.M.XB.n}（SP+P/Kでも可）`],
-        ['ガードブレイク', `6+S（0.25本）：${c.M.GB.n}（ガード不能化）`],
+        ['ガードブレイク', `6+S（0.25本）：${c.M.GB.n}（ガード不能化・<b>アーマー2発</b>／ダメージはそのまま受ける）`],
         ['無敵切り返し', `ガード硬直/ダウン中に 4+S（1本消費・完全無敵）`],
         ['投げ / 抜け', `投げ(またはP+K) / 掴まれた瞬間に投げ or P+K`],
         ['超必殺技（全消費）', `ゲージ満タン時に EX+SP / EX+S / 画面下ボタン（18秒CD）`]
@@ -4739,6 +5268,14 @@
       for (const k of Object.keys(c.M)) if (c.M[k].rapidTo) rows.push([`${k} → ${c.M[k].rapidTo.join('/')}キャンセル`, `${c.M[k].n}がヒット/ガードしたら、すぐに ${c.M[k].rapidTo.join('/')} を入力するとキャンセルして出る`]);
       if (c.id === 1) rows.push(['特殊派生', '4SP(ダッシュスルー)中 P:中段・K:下段']);
       if (c.id === 2) rows.push(['特殊弾ストック', '5SPで弾をストック(最大4)。6SP/タメ5SP/6EXで消費して発射']);
+      if (c.id === 3) {
+        rows.push(['特徴的な通常技', '5K：回転前進2連廻し蹴り / 4K：昇天脚(対空無敵あり) / 4P：剛烈双拳(発生遅め・高火力2連正拳突き・キャンセル可)']);
+        rows.push(['旋風脚（4SP / 4EX）', '低判定＆下半身に弾無敵あり。ヒット時はきりもみ回転で浮き、発生の早い技（2P・昇焔拳など）で追撃可能']);
+        rows.push(['空中専用技', '空中SP(または↓↘→+P)：空裂波 / 空中EX：EX空裂波 / 空中↓+K：天墜脚(急降下)']);
+        rows.push(['コマンド必殺技（威力1.2倍）', '↓↘→+P：焔波 / →↓↘+P：昇焔拳 / ↓↙←+K：旋風脚 / ↓↙←+P：影歩（EXボタンでEX強化版も可）']);
+        rows.push(['超必殺コマンド（威力1.2倍）', 'ゲージ満タン時に「P・P・→・K」または「↓↘→↓↘→+P/K/SP」で滅殺・天衝（ガード不能コマ投げ）']);
+        rows.push(['基礎体力', '9000（他キャラは10000）']);
+      }
       $('mlt').textContent = `技表：${c.name}（${c.role}）`;
       $('mlb').innerHTML = `<table><tr><th>コマンド</th><th>技名・効果</th></tr>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join('')}</table><div style="font-size:12px;color:#b8bfd8;line-height:1.6">・相手の背後へ飛んだ弾は「相手側（右）」へレバーを入れるとガード可能。<br>・コンボ補正：100% → 80% → 60% → 40% → 20% → 6段目で強制ダウン（0%）。<br>・キーボード：WASD/矢印移動, J=P, K=K, L=SP, U=投げ, I=EX, O=S, H=超必殺, R=リセット</div>`;
     }
@@ -5278,14 +5815,14 @@
     function sendSpectateState() {
       if (!NET.active || NET.side !== 1 || !NET.ws || NET.ws.readyState !== 1) return;
       const packP = q => ({
-        x: Math.round(q.x), y: Math.round(q.y), f: q.f, hp: q.hp, rhp: q.rhp, g: q.g,
+        x: Math.round(q.x), y: Math.round(q.y), f: q.f, hp: q.hp, rhp: q.rhp, maxHp: q.maxHp || 10000, armFlash: q.armFlash || 0, g: q.g,
         s: q.s, t: q.t, dnMax: q.dnMax, fr: q.fr, cid: q.cid, c: q.c, n: q.n,
         cr: q.cr, stock: q.stock, pop: q.pop, popT: q.popT, cd: q.cd, dn: q.dn, cs: q.cs, pun: q.pun,
         exGlow: q.exGlow, mKey: q.m ? q.m.k : null, thType: q.thType, thDur: q.thDur, thWin: q.thWin, w: q.w, cf: q.cf
       });
       const st = {
         P: packP(P), E: packP(E),
-        fbs: fbs.map(b => ({ kind: b.kind, x: Math.round(b.x), y: Math.round(b.y), dir: b.dir, wait: b.wait })),
+        fbs: fbs.map(b => ({ oId: b.o === P ? 1 : 2, kind: b.kind, x: Math.round(b.x), y: Math.round(b.y), dir: b.dir, wait: b.wait })),
         rw: [rw[0], rw[1]], T, ph, msg, endType, winSide, cutT, cutTxt, cutCol, cutSide, goT, pnT, FR
       };
       NET.ws.send(JSON.stringify({ t: 'spec_state', st }));
@@ -5300,7 +5837,7 @@
         dst.m = src.mKey ? CHARS[src.cid].M[src.mKey] : null;
       };
       applyP(P, st.P); applyP(E, st.E);
-      fbs = (st.fbs || []).map(b => ({ o: P, kind: b.kind, x: b.x, y: b.y, dir: b.dir, wait: b.wait }));
+      fbs = (st.fbs || []).map(b => ({ o: b.oId === 2 ? E : P, kind: b.kind, x: b.x, y: b.y, dir: b.dir, wait: b.wait }));
       if (st.rw) rw = [st.rw[0], st.rw[1]];
       T = st.T; ph = st.ph; msg = st.msg; endType = st.endType; winSide = st.winSide;
       cutT = st.cutT; cutTxt = st.cutTxt; cutCol = st.cutCol; cutSide = st.cutSide;
@@ -5446,6 +5983,25 @@
       $('kcModal').classList.add('open');
     }
     $('tKeyCfgBtn').addEventListener('pointerdown', openKeyCfgModal);
+    $('tSpriteLoadBtn').addEventListener('pointerdown', () => $('tSpriteFile').click());
+    $('tSpriteFile').addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        SPRITES[cSel[0]] = buildCharSprite(img);
+        URL.revokeObjectURL(url);
+        $('trn').classList.remove('open');
+        pop(P, '画像テスト適用！');
+      };
+      img.src = url;
+      e.target.value = '';
+    });
+    $('tSpriteClearBtn').addEventListener('pointerdown', () => {
+      SPRITES[cSel[0]] = null;
+      pop(P, '棒人間に戻しました');
+    });
     $('bKeyCfgMatch').addEventListener('pointerdown', openKeyCfgModal);
     $('kcCloseBtn').addEventListener('pointerdown', () => { kcListening = null; $('kcModal').classList.remove('open'); });
     $('kcDoneBtn').addEventListener('pointerdown', () => { kcListening = null; $('kcModal').classList.remove('open'); });
@@ -5493,7 +6049,26 @@
 
     /* ======================= 変更内容（設定⚙ → 📝 変更内容） ======================= */
     const CHANGELOG = [
-      {v:GAME_VER, date: '2026/11/24', items: [
+      {
+        v: GAME_VER, date: '2026/11/27', items: [
+          '<b>修羅キャラ 大幅リワーク＆火力アップ</b>',
+          '<b>4SP（後ろSP）と2SP（下SP）を入れ替え</b>ました（4SP/4EX＝旋風脚、2SP/2EX＝影歩）',
+          '<b>旋風脚／EX旋風脚</b>：ヒット時に<b>きりもみ回転</b>で浮くようになり、発生の早い技（2P・昇焔拳・剛拳など）で追撃可能に。また攻撃判定を低くし、<b>下半身に弾無敵</b>を付与しました',
+          '<b>5K（双旋廻し蹴り）</b>：回転しながら前進して2発蹴るモーション＆2ヒット技へ刷新しました',
+          '<b>4K（昇天脚）</b>：足を大きく上に蹴り上げる対空技（頭・腕に対空無敵あり）に変更しました',
+          '<b>4P（剛烈双拳）</b>：最大コンボ用の発生遅め・超高火力な2連正拳突き（キャンセル対応）に変更しました',
+          '修羅キャラの通常技・必殺技・超必殺技のダメージを全体的に上方修正しました'
+        ]
+      },
+      {
+        v: '4.0.0', date: '2026/11/27', items: [
+          '<b>新キャラクター「修羅キャラ」参戦！</b>（体力9000／高火力・コマンド特化）',
+          '<b>試験要素：コマンド必殺技</b>を修羅キャラに搭載。従来の方向+SPに加え、波動(↓↘→+P)・昇龍(→↓↘+P)・竜巻(↓↙←+K/P)・空中波動・瞬獄殺コマンド(P・P・→・K)で発動すると<b>威力が1.2倍</b>になります',
+          '修羅キャラ専用アクションとして、空中必殺技「空裂波」、急降下キック「天墜脚（空中↓+K）」、打撃・弾すり抜けの「影歩」、超必殺コマンド投げ「滅殺・天衝」を実装しました',
+          '<b>ガードブレイク（全キャラ共通）にスーパーアーマーを付与</b>しました。発動3F目〜発生直前まで<b>2発まで耐えて続行</b>します（ダメージはそのまま入ります／投げ・超必殺・相手のGBには負けます）'
+        ]
+      },
+      {v:'3.6.0', date: '2026/11/24', items: [
           '<b>緊急バランス調整のお知らせ</b>',
           '対戦において、機動力に乏しい特殊キャラがスライディングで地面を滑るだけで<b>立ち攻撃も飛び道具も華麗にすり抜けて突っ込んでくるという極めて不快な戦法</b>が多数見られました',
           '運営はこれを重く捉え、スライディング中のやられ判定を<b>大幅に拡大（前方 44→75 / 後方 34→0）</b>しました',
