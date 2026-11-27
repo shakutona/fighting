@@ -928,8 +928,10 @@
 
     const STEP_MS = 19.6;
     const SUP_CD_MAX = 900;
-    const GAME_VER = '4.1.0';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
-    const CHORD_WIN = 4;              // 同時押し(P+K投げ / SP+P,K でEX 等)とみなす最大フレーム差
+    const GAME_VER = '4.1.1';         // 対戦相手とバージョンが違うと挙動がズレるため、接続時に照合する
+    const CHORD_WIN = 3;              // 同時押し(P+K投げ / 超必殺)とみなす最大フレーム差
+    const CHORD_EX_WIN = 1;           // EX同時押し(SP+P,K)の許容フレーム差（小技→SPキャンセルの誤爆防止）
+    const BUF_LIFE = 10;              // 同時押し判定バッファの保持フレーム数
     // ★【調整】距離(px)：
     const SEP = {
       techEach: 58,        // 投げ抜け成功時：お互いが離れる距離（ずつ）
@@ -1654,7 +1656,7 @@
         dst.h[k] = cur;
         if (cur && !prv) {
           dst.pr[k] = 1;
-          dst.buf.push({ b: k, t: 14 });
+          dst.buf.push({ b: k, t: BUF_LIFE });
         }
       }
       if (bits & 1024) dst.pr.SUP = 1;
@@ -2094,8 +2096,13 @@
     }
 
     function go(p, m, isCmd) {
+      const prevS = p.s;
       p.s = 'atk'; p.m = m; p.fr = 0; p.hit = 0; p.n = isCmd ? (m.n + '★') : m.n; p.mid = ++SID;
       p.pend = [];   // 技を出したら、溜めていた先行入力は消費済み
+      if (prevS !== 'i') {
+        const inp = (p === P) ? I : CI;
+        inp.buf = [];   // 連打/キャンセル起動のP・Kが直後のSPと組んでEXに化けるのを防止
+      }
       p.armLeft = m.armor || (m.gb ? TUNE.gbArmorHits : 0);
       p.cmdBonus = isCmd ? 1 : 0;
       if (isCmd) {
@@ -2882,9 +2889,9 @@
           }
           p.y = 0; p.vy = 0; startSuper(p); return;
         }
-        // ★【調整】キャンセル：技の出始め(8F以内)に押したEXで、その技をEXに差し替える救済。
-        //   通常必殺と同じく「P技のみ」(EX_CANCEL_KEYS)。K技・必殺技からはEXに化けない。
-        if (i.pr.X && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {
+        // ★【調整】キャンセル：ニュートラルからの同時押しズレ救済（発生前2F以内・未ヒット時のみ）。
+        //   ヒット後のEXキャンセルは下の(p.hit)分岐で処理し、小技→SPがEXに化けるのを防ぐ。
+        if (i.pr.X && p.fr <= 2 && !p.hit && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {
           const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
           if (M[xk] && !M[xk].th && !lacksStock(p, M[xk]) && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); return }
         }
@@ -3376,6 +3383,8 @@
 
       if (o.y < 0 && m.h === 'l') return;
       p.hit |= (1 << hitIdx);
+      const atkInp = (p === P) ? I : CI;
+      if (atkInp.buf.length) atkInp.buf = atkInp.buf.filter(v => v.b !== 'P' && v.b !== 'K');
       addSpark((overlapped.hb.x1 + overlapped.hb.x2) * .5, (overlapped.hb.y1 + overlapped.hb.y2) * .5, '#ffe250');
       const hm = hitIdx > 0 ? Object.assign({}, m, { sid: p.mid * 4 + hitIdx }) : m;
       hit(p, o, hm, m.t - p.fr);
@@ -3601,37 +3610,72 @@
       }
     }
 
-    // 同時押し(コード)判定：2つのボタン入力が CHORD_WIN フレーム以内のときだけ「同時押し」とみなす。
-    // 以前はバッファ(14F)内に両方あれば同時押し扱いだったため、小技(P)→前SP と素早く入力すると
-    // 「P+SP＝EX」と誤判定されてEX技が暴発していた。
-    function processInputBuffer(inp) {
-      if (inp.buf.length) {
-        const ts = {};
-        for (const v of inp.buf) { (ts[v.b] || (ts[v.b] = [])).push(v.t) }
-        const near = (a, b) => {
-          const A = ts[a], B = ts[b];
-          if (!A || !B) return false;
-          for (const x of A) for (const y of B) if (Math.abs(x - y) <= CHORD_WIN) return true;
-          return false;
-        };
-        const near3 = (a, b, c) => {
-          const A = ts[a], B = ts[b], C = ts[c];
-          if (!A || !B || !C) return false;
-          for (const x of A) for (const y of B) for (const z of C) {
-            if (Math.max(x, y, z) - Math.min(x, y, z) <= CHORD_WIN) return true;
-          }
-          return false;
-        };
-        if (near3('S', 'P', 'K') || near('X', 'S') || near('X', 'SYS')) inp.pr.SUP = 1;
-        else if (near('P', 'K')) inp.pr.T = 1;
-        else if (near('S', 'P') || near('S', 'K')) inp.pr.X = 1;
-        inp.buf = inp.buf.filter(v => --v.t > 0);
+    function ageInputBuffer(inp) {
+      if (!inp.buf.length) return;
+      for (let i = inp.buf.length - 1; i >= 0; i--) {
+        if (--inp.buf[i].t <= 0) inp.buf.splice(i, 1);
       }
+    }
+
+    // 同時押し(コード)判定：
+    // ・成立した同時押しはバッファから消費し、複数フレーム連続でEX/投げが暴発するのを防ぐ
+    // ・EX同時押し(SP+P / SP+K)は許容差を1Fに絞り、ズレがある場合は両方押しっぱなし必須＆
+    //   攻撃中(2F以降・ヒット後)は完全同時押し(0F)のみ許可して「小技→SPキャンセル」のEX化けを解消
+    function processInputBuffer(p, inp) {
+      if (!inp.buf.length) return;
+      const consumePair = (a, b, win, requireHeld) => {
+        for (let i = 0; i < inp.buf.length; i++) {
+          if (inp.buf[i].b !== a) continue;
+          for (let j = 0; j < inp.buf.length; j++) {
+            if (i === j || inp.buf[j].b !== b) continue;
+            const diff = Math.abs(inp.buf[i].t - inp.buf[j].t);
+            if (diff > win) continue;
+            if (requireHeld && diff > 0 && !(inp.h[a] && inp.h[b])) continue;
+            const hi = Math.max(i, j), lo = Math.min(i, j);
+            inp.buf.splice(hi, 1);
+            inp.buf.splice(lo, 1);
+            return true;
+          }
+        }
+        return false;
+      };
+      const consumeTriple = (a, b, c, win) => {
+        for (let i = 0; i < inp.buf.length; i++) {
+          if (inp.buf[i].b !== a) continue;
+          for (let j = 0; j < inp.buf.length; j++) {
+            if (j === i || inp.buf[j].b !== b) continue;
+            for (let k = 0; k < inp.buf.length; k++) {
+              if (k === i || k === j || inp.buf[k].b !== c) continue;
+              const ti = inp.buf[i].t, tj = inp.buf[j].t, tk = inp.buf[k].t;
+              if (Math.max(ti, tj, tk) - Math.min(ti, tj, tk) <= win) {
+                const idxs = [i, j, k].sort((x, y) => y - x);
+                for (const idx of idxs) inp.buf.splice(idx, 1);
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+
+      if (consumeTriple('S', 'P', 'K', CHORD_WIN) || consumePair('X', 'S', CHORD_WIN, false) || consumePair('X', 'SYS', CHORD_WIN, false)) {
+        inp.pr.SUP = 1;
+      } else if (consumePair('P', 'K', CHORD_WIN, false)) {
+        inp.pr.T = 1;
+      } else {
+        const inAtkCancel = (p.s === 'atk' && (p.fr >= 2 || p.hit));
+        const exWin = inAtkCancel ? 0 : CHORD_EX_WIN;
+        if (consumePair('S', 'P', exWin, true) || consumePair('S', 'K', exWin, true)) {
+          inp.pr.X = 1;
+        }
+      }
+      ageInputBuffer(inp);
     }
 
     function copyLocTo(dst) {
       dst.l = LOC.l; dst.r = LOC.r; dst.u = LOC.u; dst.d = LOC.d;
-      dst.pr = Object.assign({}, LOC.pr);
+      // ヒットストップ中に押したボタン入力(pr)が次フレームで消えないようマージする
+      for (const k in LOC.pr) if (LOC.pr[k]) dst.pr[k] = 1;
       dst.h = Object.assign({}, LOC.h);
       while (LOC.buf.length) dst.buf.push(LOC.buf.shift());
       LOC.pr = {};
@@ -3671,13 +3715,13 @@
         koSlowT--;
         if (koSlowT % 3 !== 0) { I.pr = {}; CI.pr = {}; return; }
       }
-      if (HS > 0) { HS--; return }
-      if (cutT > 0) { cutT--; return }
+      if (HS > 0) { HS--; ageInputBuffer(I); ageInputBuffer(CI); return }
+      if (cutT > 0) { cutT--; ageInputBuffer(I); ageInputBuffer(CI); return }
       if (NET.active || LOCAL_VS.active) {
-        if (ph === 2) { I.pr = {}; CI.pr = {}; return }
-        if (ph === 1) { I.pr = {}; CI.pr = {}; if (--pt <= 0) round(); return }
+        if (ph === 2) { I.pr = {}; CI.pr = {}; I.buf = []; CI.buf = []; return }
+        if (ph === 1) { I.pr = {}; CI.pr = {}; I.buf = []; CI.buf = []; if (--pt <= 0) round(); return }
         if (goT > 48) {
-          I.pr = {}; CI.pr = {};
+          I.pr = {}; CI.pr = {}; I.buf = []; CI.buf = [];
           goT--;
           if (goT === 120 || goT === 84) se('cd');
           else if (goT === 48) se('fight');
@@ -3685,8 +3729,8 @@
         }
       }
 
-      processInputBuffer(I);
-      processInputBuffer(CI);
+      processInputBuffer(P, I);
+      processInputBuffer(E, CI);
       bufferInputs(P, I);
       bufferInputs(E, CI);
 
@@ -4027,11 +4071,11 @@
         if (pads.length >= 2 || LOCAL_VS.assign === 1) {
           copyLocTo(I);
           if (pads[0]) mergePadToInp(pads[0], 0, I);
-          clearInp(CI);
+          CI.l = CI.r = CI.u = CI.d = 0; CI.h = {};
           if (pads[1]) mergePadToInp(pads[1], 1, CI);
         } else {
           copyLocTo(I);
-          clearInp(CI);
+          CI.l = CI.r = CI.u = CI.d = 0; CI.h = {};
           if (pads[0]) mergePadToInp(pads[0], 0, CI);
         }
       } else {
@@ -5035,7 +5079,7 @@
         if (v) dst.h[k] = 1;
         if (v && !st[i]) {
           dst.pr[k] = 1;
-          dst.buf.push({ b: k, t: 14 });
+          dst.buf.push({ b: k, t: BUF_LIFE });
         }
         st[i] = v;
       }
@@ -5098,7 +5142,7 @@
     });
 
     function pushBtn(k) {
-      LOC.pr[k] = 1; LOC.buf.push({ b: k, t: 14 });
+      LOC.pr[k] = 1; LOC.buf.push({ b: k, t: BUF_LIFE });
       const bi = BTN_KEYS.indexOf(k); if (bi >= 0) LOC.tapBits = (LOC.tapBits | 0) | (1 << (4 + bi));
     }
     function bind(id, fn) {
@@ -6050,7 +6094,14 @@
     /* ======================= 変更内容（設定⚙ → 📝 変更内容） ======================= */
     const CHANGELOG = [
       {
-        v: GAME_VER, date: '2026/11/27', items: [
+        v: GAME_VER, date: '2026/11/28', items: [
+          '<b>小技→必殺技キャンセルがEXキャンセルに化ける不具合を全キャラ共通で修正</b>しました',
+          '同時押しバッファがヒットストップ中に進まず、直前のP入力と後のSP入力が「SP+P（EX）」として複数フレーム連続誤爆していた問題と、出始め8F以内のEX差し替え判定が広すぎた問題を解消しました',
+          'トレーニング／オフライン対戦でヒットストップ中に押した必殺技入力が取りこぼされる不具合もあわせて修正しました'
+        ]
+      },
+      {
+        v: '4.1.0', date: '2026/11/27', items: [
           '<b>修羅キャラ 大幅リワーク＆火力アップ</b>',
           '<b>4SP（後ろSP）と2SP（下SP）を入れ替え</b>ました（4SP/4EX＝旋風脚、2SP/2EX＝影歩）',
           '<b>旋風脚／EX旋風脚</b>：ヒット時に<b>きりもみ回転</b>で浮くようになり、発生の早い技（2P・昇焔拳・剛拳など）で追撃可能に。また攻撃判定を低くし、<b>下半身に弾無敵</b>を付与しました',
