@@ -1534,11 +1534,11 @@
           AS:  { n: '空裂波',               s: 8,  a: 0,  t: 26, fb: 'a_air', air: 1 },
           FS:  { n: '昇焔拳',               s: 4,  a: 10, t: 54, d: 1350, r: 1.1,  h: 'h', g: -32, v: 0,  kd: 110, up: 1, aaInv: 11 },
           DS:  { n: '影歩(すり抜け)',       s: 1,  a: 0,  t: 24, mv: 7.5, strikeInv: 18, projInv: 18, crossupGuard: 1, ghost: 1 },
-          BS:  { n: '旋風脚',               s: 7,  a: 12, t: 31, d: 1150, r: 1.35, h: 'h', g: -10, v: 0,  kd: 85,  mv: 5.8, mvAfterStart: 1, exC: 1, spinKick: 1, floatY: -40, spinLaunch: 1, spinVy: -6.8, spinVx: 0.85, legProjInv: 21 },
+          BS:  { n: '旋風脚',               s: 7,  a: 12, t: 31, d: 1150, r: 1.35, h: 'h', g: -10, v: 0,  kd: 85,  mv: 5.8, mvAfterStart: 1, exC: 1, spinKick: 1, floatY: -18, spinLaunch: 1, spinVy: -6.8, spinVx: 0.85, legProjInv: 21 },
           XN:  { n: 'EX焔波',               s: 7,  a: 0,  t: 22, fb: 'a_ex' },
           XF:  { n: 'EX昇焔拳',             s: 3,  a: 10, t: 58, d: 1700, r: 1.15, h: 'h', g: -40, v: 0,  kd: 135, up: 1, inv: 14 },
           XD:  { n: 'EX影歩',               s: 1,  a: 0,  t: 20, mv: 10.5, inv: 18, crossupGuard: 1, ghost: 1 },
-          XB:  { n: 'EX旋風脚',             s: 5,  a: 14, t: 32, d: 1450, r: 1.5,  h: 'h', g: -6,  v: 0,  kd: 100, mv: 8.2, mvAfterStart: 1, spinKick: 1, floatY: -70, spinLaunch: 1, spinVy: -7.7, spinVx: 0.7, legProjInv: 23 },
+          XB:  { n: 'EX旋風脚',             s: 5,  a: 14, t: 32, d: 1450, r: 1.5,  h: 'h', g: -6,  v: 0,  kd: 100, mv: 8.2, mvAfterStart: 1, spinKick: 1, floatY: -20, spinLaunch: 1, spinVy: -7.7, spinVx: 0.7, legProjInv: 23 },
           XAS: { n: 'EX空裂波',             s: 6,  a: 0,  t: 22, fb: 'a_air_ex', air: 1 },
           GB:  { n: '砕岩掌(GB)',           s: 26, a: 3,  t: 52, d: 1000, r: 1.6,  h: 'h', kd: 95,  gb: 60, mv: 1.6, armor: 2 },
           SUP: { n: '滅殺・天衝',           s: 5,  a: 14, t: 52, d: 3900, r: 1.25, th: 1, thType: 'shun', cmd: 1, inv: 16, mv: 14, mvAfterStart: 1, kd: 75 },
@@ -1563,7 +1563,7 @@
     const FBS = {
       z_norm:    { pwr: 1, d: 700,  h: 'h', g: 20, v: 26, spd: 10.2, rad: 10, col: '#ffb347', one: 1 },
       z_ex:      { pwr: 2, d: 1000,  h: 'h', g: 30, v: 32, kd: 70, spd: 30,   rad: 12, col: '#6fe3ff', twice: 1},
-      z_mega:    { pwr: 2, d: 1050, h: 'h', g: 50, v: 36, spd: 3.8,   rad: 22, col: '#ff7a45', one: 1, chip:500},
+      z_mega:    { pwr: 3, d: 1050, h: 'h', g: 50, v: 36, spd: 3.8,   rad: 22, col: '#ff7a45', one: 1, chip:150},
       z_air:     { pwr: 1, d: 700,  h: 'l', g: 15, v: 28, spd: 6,    vy: 5,   rad: 10, col: '#ffb347', one: 1 },
       z_air_ex:  { pwr: 2, d: 850,  h: 'm', g: 30, v: 50, spd: 7.5,  vy: 5.4, rad: 11, col: '#6fe3ff', twice: 1 },
       z_sup:     { pwr: 3, d: 3000, h: 'h', g: 30, v: 0,  kd: 48, spd: 28,   rad: 26, col: '#4aa3ff', beam: 1, chip: 100 },
@@ -3092,6 +3092,10 @@
           if (p.cid === 2 && p.m === M.NSM && !p.hit && p.stock > 0) { p.stock--; spawnFb(p, 's_boom_chg'); }
           p.y = 0; p.vy = 0; startSuper(p); return;
         }
+        // ★【調整】キャンセル：P技（5P/6P/2P/4P・肉弾タメP）ヒット/ガード/アーマー受けからガードブレイク(→+S)へキャンセル可能
+        if (fw && i.pr.SYS && p.g >= .25 && EX_CANCEL_KEYS.has(p.m.k)) {
+          p.y = 0; p.vy = 0; p.cr = 0; p.g -= .25; go(p, M.GB); return;
+        }
         if (i.pr.X && p.g >= 1 && EX_CANCEL_KEYS.has(p.m.k)) {   // ★【調整】キャンセル：ヒット/ガード後のEXキャンセルもP技のみ
           const xk = 'X' + (i.d ? 'D' : fw ? 'F' : bk ? 'B' : 'N');
           if (M[xk] && !M[xk].th && !lacksStock(p, M[xk]) && !(isZonerFbMove(p, M[xk]) && hasActiveZonerFb(p))) { p.y = 0; p.vy = 0; p.g -= 1; go(p, M[xk]); pop(p, 'EXキャンセル！'); onTutEvent('ex_cancel', { p }); return }
@@ -3624,22 +3628,26 @@
       const isCmdHit = fbSpec ? !!m.cmdBonus : !!p.cmdBonus;
       const cmdMul = isCmdHit ? TUNE.cmdDmgMul : 1;
 
-      // ★スーパーアーマー判定（GB発動3F〜発生直前まで2発耐える。ダメージはそのまま入る／GB・超必殺・投げはアーマー貫通）
-      const hasArmor = o.s === 'atk' && o.m && o.armLeft > 0 && o.fr >= (o.m.armorStart || TUNE.gbArmorStart) && o.fr < o.m.s;
-      if (hasArmor && !m.gb && m.k !== 'SUP' && !(fbSpec && fbSpec.beam)) {
+      // ★スーパーアーマー判定（通常攻撃はGB発動3F〜発生直前まで2発耐える。
+      //   相手のGBに対しては自分のGBのアーマーで発動直後(0F)から耐えてそのまま反撃＝GB返しが可能。超必殺・投げはアーマー貫通）
+      const isGbCounter = !!(m.gb && o.s === 'atk' && o.m && o.m.gb);
+      const armorMinFr = isGbCounter ? 0 : ((o.m && o.m.armorStart) || TUNE.gbArmorStart);
+      const hasArmor = o.s === 'atk' && o.m && o.armLeft > 0 && o.fr >= armorMinFr && o.fr < o.m.s;
+      if (hasArmor && (!m.gb || isGbCounter) && m.k !== 'SUP' && !(fbSpec && fbSpec.beam)) {
         const dmArm = Math.round(m.d * cmdMul);
         o.armLeft--;
-        o.armFlash = 10;
+        o.armFlash = isGbCounter ? 14 : 10;
+        if (isGbCounter && o.fr < 4) o.fr = 4; // ギリギリ反応のGB返しでも相手の後隙に確実に反撃が届くよう補正
         o.hp -= dmArm;
         o.g = Math.min(4, o.g + dmArm / TUNE.gaugePerDamage);
         if (!NET.active && !LOCAL_VS.active && o === E) {
           TRN.lastDmg = dmArm;
           TRN.lastScale = 100;
         }
-        pop(o, 'ARMOR!');
+        pop(o, isGbCounter ? 'GB返しアーマー！' : 'ARMOR!');
         se('arm');
-        HS = Math.max(HS, 5);
-        SHK = Math.max(SHK, 3);
+        HS = Math.max(HS, isGbCounter ? 10 : 5);
+        SHK = Math.max(SHK, isGbCounter ? 6 : 3);
         return;
       }
 
@@ -3903,7 +3911,7 @@
          行動できるようになった瞬間（またはキャンセル受付中）に「今押した」として発動させる。
          ・対象ボタン: BUFFER_KEYS    ・溜められる状態: BUFFER_STATES（起き上がりは別途 wakeupBuf で対応）
          ・技を出す(go)と溜めた入力は消費される */
-    const BUFFER_KEYS = ['P', 'K', 'S', 'T', 'X'];
+    const BUFFER_KEYS = ['P', 'K', 'S', 'T', 'X', 'SYS'];
     const BUFFER_STATES = new Set(['atk', 'hs', 'bs', 'gb', 'bstep']);
     function bufferInputs(p, inp) {
       if (TUNE.inputBufferFrames <= 0) { p.pend = []; return }
@@ -4749,7 +4757,7 @@
           },
           {
             goal: '② ガード中の相手に「→ + S（ガードブレイク）」をガードさせて破壊しよう！',
-            tip: '読み合い：GB(0.25本)は2発までアーマーで耐えつつ相手のガードを破壊＆ゲージを1本奪います！直撃なら1000ダメージ＋長ダウン！',
+            tip: '読み合い：GB(0.25本)はP技からキャンセルでき、2発までアーマーで耐えてガード破壊＆ゲージ-1！相手のGBも自分のGBで耐えて返せます！',
             need: 1, mode: 'guard_all', pGauge: 2, eGauge: 2, pX: 265, eX: 355
           }
         ]
@@ -6071,7 +6079,7 @@
         ['5SP', `${c.M.NS.n}（最大タメ30Fで「${c.M[c.chTo].n}」）`],
         ['6SP / 2SP / 4SP', `${c.M.FS.n} / ${c.M.DS.n} / ${c.M.BS.n}`],
         ['EX（1本消費）', `${c.M.XN.n} / ${c.M.XF.n} / ${c.M.XD.n} / ${c.M.XB.n}（SP+P/Kでも可）`],
-        ['ガードブレイク', `6+S（0.25本）：${c.M.GB.n}（ガード時：60Fブレイク＋<b>相手ゲージ1本減少</b> / ヒット時：<b>1000ダメージ＆長ダウン</b> / <b>アーマー2発</b>）`],
+        ['ガードブレイク', `6+S（0.25本・<b>P技からキャンセル可</b>）：${c.M.GB.n}（ガード時：60Fブレイク＋<b>相手ゲージ1本減少</b> / ヒット時：<b>1000ダメージ＆長ダウン</b> / <b>アーマー2発・相手のGBを耐えて反撃可</b>）`],
         ['無敵切り返し', `ガード硬直/ダウン中に 4+S（1本消費・完全無敵）`],
         ['投げ / 抜け', `投げ(またはP+K) / 掴まれた瞬間に投げ or P+K`],
         ['超必殺技（全消費）', `ゲージ満タン時に EX+SP / EX+S / 画面下ボタン（18秒CD）`]
@@ -6994,8 +7002,8 @@
     const CHANGELOG = [
       {
         v: GAME_VER, date: '2026/11/28', items: [
-          '<b>ガードブレイク（全キャラ共通）大幅強化</b>：ヒットダメージを <b>1000</b> へ引き上げ、ダウン時間も大幅に延長しました。さらに<b>ガードさせた時に相手のゲージを1本減少</b>させる効果を追加しました',
-          '<b>弾キャラと修羅キャラの差別化を強化</b>：弾キャラは高速＆高回転の遠距離地上弾・メガ・キャノン・広い対空と長リーチK牽制を持つ「遠距離制圧・砲台」に特化。修羅キャラは焔波を中距離で消える短射程にする一方、高速歩き・空中機動・影歩・高火力コンボの「近中距離ラッシュ」に特化しました',
+          '<b>ガードブレイク（全キャラ共通）大幅強化＆GB返し実装</b>：ヒットダメージを <b>1000</b> へ引き上げ、ダウン時間も大幅に延長しました。ガード時に<b>相手のゲージを1本減少</b>させるほか、<b>P技（5P/6P/2P/4P・肉弾タメP）からのキャンセル発動</b>と、<b>相手のGBを自分のGBのアーマーで耐えて逆に返す（GB返し）</b>に対応しました',
+          '<b>弾キャラと修羅キャラの差別化を強化</b>：弾キャラは高速＆高回転の遠距離地上弾・最強強度(pwr:3)のメガ・キャノン・広い対空と長リーチK牽制を持つ「遠距離制圧・砲台」に特化。修羅キャラは焔波を中距離で消える短射程にする一方、高速歩き・空中機動・影歩・高火力コンボの「近中距離ラッシュ」に特化しました',
           '<b>修羅キャラの旋風脚／EX旋風脚</b>を<b>少し宙に浮きながら回転前進する挙動</b>へ変更しました（下段技をかわしつつ、しゃがみにも当たる低め判定＆下半身弾無敵を維持）',
           '<b>キャラ見た目・カラーカスタマイズ機能を追加</b>（上部「🎨 見た目」／設定／ロビー）：4種類の描写スタイル（標準・ネオン・墨絵・メカ装甲）と自由カラー選択に対応。バイザー＆砲身・鉢巻き＆グローブ・フード＆背面ブーメラン・トゲ髪＆黒帯オーラなど<b>キャラ固有の特徴パーツ</b>により、どの色・描写でも一目でキャラを識別できます（オンライン対戦同期＆同色ミラー自動識別対応）',
           '<b>初心者向けインタラクティブ・チュートリアルを追加</b>（上部「📘 チュートリアル」）：基本操作から中下段の2択、投げ＆ガードブレイク、対空、キャンセル＆EX、無敵切り返し、パニッシュ＆超必殺技まで全7レッスンで「読み合い」を実践的に学べます'
